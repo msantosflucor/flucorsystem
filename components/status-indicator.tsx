@@ -1,29 +1,44 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
-type StatusType = "approved" | "in_progress" | "incompatible" | "rejected" | "free" | "pending" | "maintenance"
+type StatusType =
+  | "approved"
+  | "in_progress"
+  | "incompatible"
+  | "rejected"
+  | "free"
+  | "pending"
+  | "maintenance";
 
 interface StatusIndicatorProps {
-  status: StatusType
-  size?: "small" | "medium" | "large"
-  showLabel?: boolean
-  className?: string
+  status?: StatusType; // Agora pode ser opcional para evitar quebra
+  size?: "small" | "medium" | "large";
+  showLabel?: boolean;
+  className?: string;
 }
 
 export default function StatusIndicator({
-  status,
+  status = "pending", // Define um padrão seguro
   size = "medium",
   showLabel = true,
   className,
 }: StatusIndicatorProps) {
-  // Definir tamanhos com base no parâmetro
   const sizes = {
     small: "h-3 w-3",
     medium: "h-5 w-5",
     large: "h-7 w-7",
-  }
+  };
 
-  // Cores e gradientes para cada status
-  const statusStyles = {
+  const statusStyles: Record<
+    StatusType,
+    {
+      bg: string;
+      border: string;
+      shadow: string;
+      pulse: string;
+      text: string;
+      label: string;
+    }
+  > = {
     approved: {
       bg: "bg-gradient-to-r from-green-500 to-green-600",
       border: "border-green-700",
@@ -46,7 +61,7 @@ export default function StatusIndicator({
       shadow: "shadow-md shadow-red-200",
       pulse: "animate-pulse-subtle",
       text: "text-red-700",
-      label: "INCOMPATIBILIDADE",
+      label: "INCOMPATÍVEL",
     },
     rejected: {
       bg: "bg-gradient-to-r from-gray-800 to-black",
@@ -54,7 +69,7 @@ export default function StatusIndicator({
       shadow: "shadow-md shadow-gray-400",
       pulse: "animate-pulse-subtle",
       text: "text-gray-900",
-      label: "RECUSADA",
+      label: "RECUSADO",
     },
     free: {
       bg: "bg-gradient-to-r from-gray-200 to-gray-300",
@@ -80,9 +95,18 @@ export default function StatusIndicator({
       text: "text-purple-700",
       label: "MANUTENÇÃO",
     },
-  }
+  };
 
-  const currentStyle = statusStyles[status]
+  const currentStyle =
+    statusStyles[status] ||
+    ({
+      bg: "bg-gradient-to-r from-gray-100 to-gray-200",
+      border: "border-gray-300",
+      shadow: "shadow",
+      pulse: "",
+      text: "text-gray-500",
+      label: "INDEFINIDO",
+    } as const);
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -93,13 +117,16 @@ export default function StatusIndicator({
           currentStyle.bg,
           currentStyle.border,
           currentStyle.shadow,
-          currentStyle.pulse,
+          currentStyle.pulse
         )}
       >
-        {/* Reflexo */}
         <div className="h-1/3 w-1/3 rounded-full bg-white/30 ml-1 mt-1"></div>
       </div>
-      {showLabel && <span className={cn("font-medium", currentStyle.text)}>{currentStyle.label}</span>}
+      {showLabel && (
+        <span className={cn("font-medium", currentStyle.text)}>
+          {currentStyle.label}
+        </span>
+      )}
     </div>
-  )
+  );
 }

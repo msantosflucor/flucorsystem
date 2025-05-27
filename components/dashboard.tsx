@@ -76,15 +76,16 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
   };
 
   const caminhõesAguardando = caminhoes.filter(
-    (c) => !c.status || c.status === "em_analise"
+    (c) => !c.status || c.status === "waiting" || c.status === "in_progress"
   );
-  const mediaEspera = caminhoes.length
+
+  const mediaEspera = caminhõesAguardando.length
     ? Math.floor(
-        caminhoes.reduce(
+        caminhõesAguardando.reduce(
           (acc, c) =>
             acc + (Date.now() - new Date(c.criadoEm).getTime()) / 60000,
           0
-        ) / caminhoes.length
+        ) / caminhõesAguardando.length
       )
     : 0;
 

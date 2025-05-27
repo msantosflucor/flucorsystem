@@ -30,7 +30,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Atualiza o status da caixa se for aguardar na caixa
     if (aguardarNaCaixa) {
       await prisma.caixa.update({
         where: { id: caixaId },
@@ -48,13 +47,10 @@ export async function POST(req: Request) {
   }
 }
 
-// ✅ GET - Listar caminhões aguardando análise
+// ✅ GET - Listar TODOS os caminhões (sem filtro de status)
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
-      where: {
-        status: StatusCaminhao.waiting, // Só traz caminhões aguardando análise
-      },
       orderBy: { criadoEm: "desc" },
       include: {
         caixa: true,

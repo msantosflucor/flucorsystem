@@ -16,10 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import {
   Clock, FlaskConical, AlertTriangle, CheckCircle2, Info,
 } from "lucide-react"
-import StatusIndicator from "@/components/status-indicator"
 
 export default function LaboratoryAnalysis() {
-  const [caminhoes, setCaminhoes] = useState([])
+  const [caminhoes, setCaminhoes] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("pending")
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [status, setStatus] = useState("")
@@ -28,17 +27,17 @@ export default function LaboratoryAnalysis() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
 
-  useEffect(() => {
-    const fetchCaminhoes = async () => {
-      try {
-        const res = await fetch("/api/caminhoes")
-        const data = await res.json()
-        setCaminhoes(data)
-      } catch (err) {
-        console.error("Erro ao buscar caminhões:", err)
-      }
+  const fetchCaminhoes = async () => {
+    try {
+      const res = await fetch("/api/caminhoes")
+      const data = await res.json()
+      setCaminhoes(data)
+    } catch (err) {
+      console.error("Erro ao buscar caminhões:", err)
     }
+  }
 
+  useEffect(() => {
     fetchCaminhoes()
   }, [])
 
@@ -50,6 +49,10 @@ export default function LaboratoryAnalysis() {
   const handleSelecionar = (id: number) => {
     setSelectedId(id)
     setActiveTab("analysis")
+    const selected = caminhoes.find(c => c.id === id)
+    setStatus(selected?.status || "")
+    setTanque("")
+    setObservacoes("")
   }
 
   const openDetailsDialog = (id: number) => {
@@ -66,7 +69,7 @@ export default function LaboratoryAnalysis() {
     }
 
     if ((status === "incompatible" || status === "rejected") && !observacoes) {
-      alert("Observações obrigatórias para incompatíveis ou recusadas.")
+      alert("Observações obrigatórias para incompatíveis ou recusados.")
       return
     }
 
@@ -86,7 +89,8 @@ export default function LaboratoryAnalysis() {
 
       if (!res.ok) throw new Error("Falha ao salvar")
 
-      setCaminhoes((prev) => prev.filter((c) => c.id !== selectedId))
+      await fetchCaminhoes()
+
       setSelectedId(null)
       setStatus("")
       setTanque("")
@@ -100,10 +104,44 @@ export default function LaboratoryAnalysis() {
     }
   }
 
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "waiting":
+        return "Aguardando"
+      case "in_progress":
+        return "Em Análise"
+      case "approved":
+        return "Liberado"
+      case "incompatible":
+        return "Incompatível"
+      case "rejected":
+        return "Recusado"
+      default:
+        return "Indefinido"
+    }
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "waiting":
+        return "bg-yellow-50 border-yellow-300 text-yellow-700"
+      case "in_progress":
+        return "bg-blue-50 border-blue-300 text-blue-700"
+      case "approved":
+        return "bg-green-50 border-green-300 text-green-700"
+      case "incompatible":
+        return "bg-red-50 border-red-300 text-red-700"
+      case "rejected":
+        return "bg-gray-100 border-gray-300 text-gray-700"
+      default:
+        return "bg-muted"
+    }
+  }
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
-        <TabsTrigger value="pending">Registros Pendentes</TabsTrigger>
+        <TabsTrigger value="pending">Registros</TabsTrigger>
         <TabsTrigger value="analysis" disabled={!sample}>Registrar Análise</TabsTrigger>
       </TabsList>
 
@@ -111,7 +149,7 @@ export default function LaboratoryAnalysis() {
         <Card>
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
-              Registros Pendentes
+              Registros de Caminhões
               <Badge>{caminhoes.length} registros</Badge>
             </CardTitle>
           </CardHeader>
@@ -141,8 +179,11 @@ export default function LaboratoryAnalysis() {
                         {getTimeElapsed(c.criadoEm)} min
                       </td>
                       <td className="py-2 px-4">
-                        <Badge variant="outline" className="bg-yellow-50 border-yellow-300 text-yellow-700">
-                          Aguardando análise
+                        <Badge
+                          variant="outline"
+                          className={statusColor(c.status)}
+                        >
+                          {statusLabel(c.status)}
                         </Badge>
                       </td>
                       <td className="py-2 px-4 flex gap-2">
