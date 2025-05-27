@@ -1,0 +1,546 @@
+ from "@/components/ui/radio-group"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { FlaskConical, AlertTriangle, CheckCircle2, Clock, Search } from "lucide-react"
+import StatusIndicator from "@/components/status-indicator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+
+// Amostras pendentes simuladas
+const PENDING_SAMPLES = [
+  {
+    id: "ABC12345",
+    plate: "ABC-1234",
+    box: "Caixa 01",
+    time: 15,
+    registrationTime: "2025-05-13T09:30:00",
+    type: "Diversos",
+    origin: "Empresa A",
+    priority: "normal",
+  },
+  {
+    id: "DEF67890",
+    plate: "DEF-5678",
+    box: "Caixa 03",
+    time: 30,
+    registrationTime: "2025-05-13T08:45:00",
+    type: "Oleoso",
+    origin: "Empresa B",
+    priority: "alta",
+  },
+  {
+    id: "GHI12345",
+    plate: "GHI-9012",
+    box: "Caixa 02",
+    time: 5,
+    registrationTime: "2025-05-13T10:15:00",
+    type: "Alcalino",
+    origin: "Empresa C",
+    priority: "normal",
+  },
+  {
+    id: "JKL67890",
+    plate: "JKL-3456",
+    box: "Caixa 04",
+    time: 45,
+    registrationTime: "2025-05-13T07:30:00",
+    type: "Ácidos",
+    origin: "Empresa D",
+    priority: "alta",
+  },
+  {
+    id: "MNO12345",
+    plate: "MNO-7890",
+    box: "Caixa 05",
+    time: 20,
+    registrationTime: "2025-05-13T09:00:00",
+    type: "Diversos",
+    origin: "Empresa E",
+    priority: "baixa",
+  },
+]
+
+export default function LaboratoryAnalysis() {
+  const { toast } = useToast()
+  const [analysisStatus, setAnalysisStatus] = useState("")
+  const [destination, setDestination] = useState("")
+  const [additionalInfo, setAdditionalInfo] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("pending")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [priorityFilter, setpriorityFilter] = useState("all")
+  const [sortBy, setSortBy] = useState("time")
+
+  // Estado para armazenar as amostras pendentes
+  const [pendingSamples, setPendingSamples] = useState(PENDING_SAMPLES)
+  const [selectedSampleId, setSelectedSampleId] = useState("")
+  const selectedSample = pendingSamples.find((sample) => sample.id === selectedSampleId)
+
+  // Filtrar e ordenar amostras
+  const filteredSamples = pendingSamples
+    .filter((sample) => {
+      const matchesSearch =
+        sample.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sample.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sample.origin.toLowerCase().includes(searchQuery.toLowerCase())
+
+      const matchesType = typeFilter === "all" || sample.type === typeFilter
+      const matchesPriority = priorityFilter === "all" || sample.priority === priorityFilter
+
+      return matchesSearch && matchesType && matchesPriority
+    })
+    .sort((a, b) => {
+      if (sortBy === "time") return b.time - a.time
+      if (sortBy === "id") return a.id.localeCompare(b.id)
+      if (sortBy === "registration")
+        return new Date(a.registrationTime).getTime() - new Date(b.registrationTime).getTime()
+      return 0
+    })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+
+    if (!selectedSampleId || !analysisStatus || !destination) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if ((analysisStatus === "incompatible" || analysisStatus === "rejected") && !additionalInfo) {
+      toast({
+        title: "Informações complementares necessárias",
+        description: "Por favor, forneça informações complementares para amostras incompatíveis ou recusadas.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+
+    // Simulando envio para API
+    setTimeout(() => {
+      setIsSubmitting(false)
+
+      // Remover a amostra analisada da lista de pendentes
+      setPendingSamples(pendingSamples.filter((sample) => sample.id !== selectedSampleId))
+
+      // Mensagem de sucesso com informações sobre o tanque e observações
+      const statusText =
+        analysisStatus === "approved"
+          ? `liberada para o tanque ${destination}`
+          : analysisStatus === "in_progress"
+            ? "colocada em análise"
+            : "recusada"
+
+      const obsText = additionalInfo ? ` Observações registradas.` : ""
+
+      toast({
+        title: "Análise registrada com sucesso",
+        description: `Amostra ${selectedSampleId} foi ${statusText}.${obsText}`,
+      })
+
+      // Reset form
+      setSelectedSampleId("")
+      setAnalysisStatus("")
+      setDestination("")
+      setAdditionalInfo("")
+      setActiveTab("pending")
+    }, 1500)
+  }
+
+  // Função para selecionar uma amostra da lista
+  const selectSample = (id) => {
+    setSelectedSampleId(id)
+    setActiveTab("analysis")
+  }
+
+  // Formatar data e hora
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleString()
+  }
+
+  // Obter classe de prioridade
+  const getPriorityClass = (priority) => {
+    switch (priority) {
+      case "alta":
+        return "bg-red-100 text-red-800 border-red-300"
+      case "normal":
+        return "bg-blue-100 text-blue-800 border-blue-300"
+      case "baixa":
+        return "bg-green-100 text-green-800 border-green-300"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300"
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <FlaskConical className="h-6 w-6" />
+            Análise Laboratorial
+          </h2>
+          <p className="text-muted-foreground">Gerencie registros e análises de amostras pendentes</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 border-blue-300 flex items-center gap-1.5 py-1.5"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            <span>{pendingSamples.length} registros pendentes</span>
+          </Badge>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="pending" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            <span>Registros Pendentes</span>
+            <Badge variant="secondary" className="ml-1">
+              {pendingSamples.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="flex items-center gap-2">
+            <FlaskConical className="h-4 w-4" />
+            <span>Registrar Análise</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">Registros Pendentes para Análise</CardTitle>
+              <CardDescription>Selecione um registro para iniciar a análise laboratorial</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Filtros e busca */}
+                <div className="flex flex-col gap-4 md:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                    <Input
+                      placeholder="Buscar por ID, placa, origem..."
+                      className="pl-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Tipo de resíduo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        <SelectItem value="Diversos">Diversos</SelectItem>
+                        <SelectItem value="Oleoso">Oleoso</SelectItem>
+                        <SelectItem value="Alcalino">Alcalino</SelectItem>
+                        <SelectItem value="Ácidos">Ácidos</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={priorityFilter} onValueChange={setpriorityFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Prioridade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="alta">Alta</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="baixa">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Ordenar por" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="time">Tempo de espera</SelectItem>
+                        <SelectItem value="id">ID da amostra</SelectItem>
+                        <SelectItem value="registration">Data de registro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Lista de registros - Destacada e mais visível */}
+                <div className="rounded-md border overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-primary/10 border-b">
+                        <th className="py-3 px-4 text-left font-medium">ID do Registro</th>
+                        <th className="py-3 px-4 text-left font-medium">Placa</th>
+                        <th className="py-3 px-4 text-left font-medium">Caixa</th>
+                        <th className="py-3 px-4 text-left font-medium">Tipo</th>
+                        <th className="py-3 px-4 text-left font-medium">Tempo</th>
+                        <th className="py-3 px-4 text-left font-medium">Prioridade</th>
+                        <th className="py-3 px-4 text-left font-medium">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSamples.length > 0 ? (
+                        filteredSamples.map((sample) => (
+                          <tr key={sample.id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 px-4 font-medium">{sample.id}</td>
+                            <td className="py-3 px-4">{sample.plate}</td>
+                            <td className="py-3 px-4">{sample.box}</td>
+                            <td className="py-3 px-4 font-medium text-base">{sample.type}</td>
+                            <td className="py-3 px-4">
+                              <div
+                                className={`flex items-center gap-1 ${sample.time > 30 ? "text-red-600 font-medium" : ""}`}
+                              >
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{sample.time} min</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="outline" className={`${getPriorityClass(sample.priority)}`}>
+                                {sample.priority.charAt(0).toUpperCase() + sample.priority.slice(1)}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Button size="sm" onClick={() => selectSample(sample.id)}>
+                                Analisar
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                            Nenhum registro pendente encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analysis">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="h-6 w-6" />
+                Registrar Análise Laboratorial
+              </CardTitle>
+              <CardDescription>Registre o resultado da análise laboratorial de uma amostra</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  {!selectedSampleId ? (
+                    <div className="space-y-4">
+                      <Label htmlFor="sampleSelect" className="text-lg font-medium mb-2 block">
+                        Selecione a Amostra Pendente
+                      </Label>
+                      <Select value={selectedSampleId} onValueChange={setSelectedSampleId}>
+                        <SelectTrigger id="sampleSelect">
+                          <SelectValue placeholder="Selecione uma amostra pendente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pendingSamples.map((sample) => (
+                            <SelectItem key={sample.id} value={sample.id}>
+                              {sample.id} - {sample.plate} - {sample.box} ({sample.time} min)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="flex justify-center py-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setActiveTab("pending")}
+                          className="flex items-center gap-2"
+                        >
+                          <Clock className="h-4 w-4" />
+                          Ver Lista de Amostras Pendentes
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-gray-50 p-4 rounded-md border space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-medium text-lg">Detalhes do Registro</h3>
+                          <Badge variant="outline" className={`${getPriorityClass(selectedSample.priority)}`}>
+                            Prioridade {selectedSample.priority}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-sm text-gray-500">ID do Registro</div>
+                            <div className="font-bold text-lg">{selectedSample.id}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Placa do Caminhão</div>
+                            <div className="font-medium">{selectedSample.plate}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Caixa</div>
+                            <div className="font-medium">{selectedSample.box}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Tipo de Resíduo</div>
+                            <div className="font-medium text-base">{selectedSample.type}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Origem</div>
+                            <div className="font-medium">{selectedSample.origin}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Tempo de Espera</div>
+                            <div
+                              className={`font-medium flex items-center gap-1 ${selectedSample.time > 30 ? "text-red-600" : ""}`}
+                            >
+                              <Clock className="h-4 w-4" />
+                              {selectedSample.time} minutos
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Data de Registro</div>
+                            <div className="font-medium">{formatDateTime(selectedSample.registrationTime)}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="analysisStatus" className="text-lg font-medium mb-2 block">
+                          Status da Análise
+                        </Label>
+                        <RadioGroup
+                          value={analysisStatus}
+                          onValueChange={setAnalysisStatus}
+                          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                        >
+                          <div className="flex items-center space-x-3 rounded-md border p-4 [&:has(:checked)]:bg-green-50 [&:has(:checked)]:border-green-300 [&:has(:checked)]:shadow-inner">
+                            <RadioGroupItem value="approved" id="approved" className="h-5 w-5" />
+                            <Label htmlFor="approved" className="flex items-center gap-3 font-medium">
+                              <StatusIndicator status="approved" size="medium" />
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3 rounded-md border p-4 [&:has(:checked)]:bg-yellow-50 [&:has(:checked)]:border-yellow-300 [&:has(:checked)]:shadow-inner">
+                            <RadioGroupItem value="in_progress" id="in_progress" className="h-5 w-5" />
+                            <Label htmlFor="in_progress" className="flex items-center gap-3 font-medium">
+                              <StatusIndicator status="in_progress" size="medium" />
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3 rounded-md border p-4 [&:has(:checked)]:bg-red-50 [&:has(:checked)]:border-red-300 [&:has(:checked)]:shadow-inner">
+                            <RadioGroupItem value="incompatible" id="incompatible" className="h-5 w-5" />
+                            <Label htmlFor="incompatible" className="flex items-center gap-3 font-medium">
+                              <StatusIndicator status="incompatible" size="medium" />
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3 rounded-md border p-4 [&:has(:checked)]:bg-gray-800 [&:has(:checked)]:text-white [&:has(:checked)]:shadow-inner">
+                            <RadioGroupItem value="rejected" id="rejected" className="h-5 w-5" />
+                            <Label htmlFor="rejected" className="flex items-center gap-3 font-medium">
+                              <StatusIndicator status="rejected" size="medium" />
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="destination" className="text-lg font-medium mb-2 block">
+                          Tanque de Destino
+                        </Label>
+                        <Input
+                          id="destination"
+                          placeholder="Informe o tanque de destino (ex: TQ01, TQ02, Caixa 03...)"
+                          value={destination}
+                          onChange={(e) => setDestination(e.target.value)}
+                        />
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Este tanque será exibido para o operador durante o descarregamento
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="additionalInfo" className="text-lg font-medium mb-2 block">
+                          Observações para Descarregamento
+                        </Label>
+                        <Textarea
+                          id="additionalInfo"
+                          placeholder="Informe instruções ou observações importantes para o descarregamento..."
+                          value={additionalInfo}
+                          onChange={(e) => setAdditionalInfo(e.target.value)}
+                          rows={4}
+                        />
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Estas observações serão exibidas para o operador durante o descarregamento
+                        </p>
+                      </div>
+
+                      {(analysisStatus === "incompatible" || analysisStatus === "rejected") && !additionalInfo && (
+                        <div className="rounded-md border border-red-200 bg-red-50 p-4">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-6 w-6 text-red-600 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-red-800">Informações Complementares Necessárias</h4>
+                              <p className="text-sm text-red-700">
+                                Por favor, forneça informações complementares para a incompatibilidade ou recusa.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {analysisStatus === "approved" && (
+                        <div className="rounded-md border border-green-200 bg-green-50 p-4">
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-green-800">Liberação Automática</h4>
+                              <p className="text-sm text-green-700">
+                                O sistema irá liberar automaticamente o caminhão para descarregamento no tanque{" "}
+                                <strong>{destination || "[não informado]"}</strong>. As observações serão exibidas para
+                                o operador.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </form>
+            </CardContent>
+            {selectedSampleId && (
+              <CardFooter className="flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedSampleId("")
+                    setAnalysisStatus("")
+                    setDestination("")
+                    setAdditionalInfo("")
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" onClick={handleSubmit} disabled={isSubmitting} size="lg">
+                  {isSubmitting ? "Registrando..." : "Registrar Análise"}
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

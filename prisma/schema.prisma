@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////
+// ENUMS
+//////////////////////////
+
+enum StatusLinha {
+  active
+  maintenance
+}
+
+enum StatusCaixa {
+  livre
+  ocupada
+}
+
+enum StatusCaminhao {
+  waiting         // ✅ Aguardando na caixa
+  in_progress     // ✅ No pátio ou em análise (não ocupa caixa)
+  approved        // 🔍 Resultado da análise: Liberado (não manda pro histórico)
+  incompatible    // 🔍 Resultado da análise: Incompatível
+  rejected        // 🔍 Resultado da análise: Recusado
+  finalizado      // ✅ Caminhão encerrado, vai pro histórico
+}
+
+enum TipoResiduo {
+  Diversos
+  Oleoso
+  Alcalino
+  Acidos
+  Lodo
+}
+
+//////////////////////////
+// TABELA DE UNIDADES
+//////////////////////////
+
+model Unidade {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  corHex    String
+  criadoEm  DateTime @default(now())
+}
+
+//////////////////////////
+// TABELA DE CAMINHÕES
+//////////////////////////
+
+model Caminhao {
+  id              Int               @id @default(autoincrement())
+  placa           String
+  origem          String?
+  caixaId         Int
+  aguardarNaCaixa Boolean
+  criadoEm        DateTime          @default(now())
+  status          StatusCaminhao    @default(waiting) // ✅ Fluxo inicial correto
+  tipo            TipoResiduo       @default(Diversos)
+
+  caixa           Caixa             @relation(fields: [caixaId], references: [id])
+  analises        Analise[]
+}
+
+//////////////////////////
+// TABELA DE ANÁLISES
+//////////////////////////
+
+model Analise {
+  id            Int             @id @default(autoincrement())
+  caminhaoId    Int
+  status        StatusCaminhao  // 🔥 Representa apenas o resultado da análise
+  tanque        String
+  observacoes   String
+  criadoEm      DateTime        @default(now())
+
+  caminhao      Caminhao        @relation(fields: [caminhaoId], references: [id])
+}
+
+//////////////////////////
+// TABELA DE CAIXAS
+//////////////////////////
+
+model Caixa {
+  id          Int          @id @default(autoincrement())
+  nome        String       @unique
+  status      StatusCaixa
+  tipoResiduo TipoResiduo
+  linhaId     Int?         
+  criadoEm    DateTime     @default(now())
+
+  linha       Linha?       @relation(fields: [linhaId], references: [id])
+  caminhoes   Caminhao[]
+}
+
+//////////////////////////
+// TABELA DE LINHAS
+//////////////////////////
+
+model Linha {
+  id                Int          @id @default(autoincrement())
+  nome              String       @unique
+  tipo              TipoResiduo
+  status            StatusLinha
+  motivoManutencao  String?
+  tempoMedio        Int
+  eficiencia        Int
+  cargaAtual        Int
+  ultimaManutencao  DateTime
+  criadoEm          DateTime     @default(now())
+
+  caixas            Caixa[]
+}
