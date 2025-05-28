@@ -12,7 +12,7 @@ export async function GET() {
         caminhoes: {
           where: {
             status: {
-              in: [StatusCaminhao.waiting, StatusCaminhao.in_progress],
+              not: "finalizado", // 🔥 Só oculta caminhões finalizados
             },
           },
           orderBy: { criadoEm: "desc" },
@@ -28,8 +28,9 @@ export async function GET() {
       tipoResiduo: c.tipoResiduo,
       linha: c.linha ? { id: c.linha.id, nome: c.linha.nome } : null,
       criadoEm: c.criadoEm,
-      caminhaoId: c.caminhoes[0]?.id || null,
-      caminhaoPlaca: c.caminhoes[0]?.placa || null,
+      caminhaoId: c.caminhoes.length > 0 ? c.caminhoes[0].id : null,
+      caminhaoPlaca: c.caminhoes.length > 0 ? c.caminhoes[0].placa : null,
+      caminhaoStatus: c.caminhoes.length > 0 ? c.caminhoes[0].status : null,
     }));
 
     return NextResponse.json(resultado);
@@ -42,10 +43,10 @@ export async function GET() {
   }
 }
 
-// ✅ PATCH - Liberar uma caixa e marcar o caminhão como finalizado
+// ✅ PATCH - Liberar caixa, atualizar caminhão e registrar no histórico
 export async function PATCH(req: Request) {
   try {
-    const { caixaId, caminhaoId } = await req.json();
+    const { caixaId, caminhaoId, tanque = "Sem tanque", observacoes = "Sem observações" } = await req.json();
 
     if (!caixaId || !caminhaoId) {
       return NextResponse.json(
@@ -54,20 +55,52 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // 🔧 Libera a caixa (status = livre)
+    const caixa = await prisma.caixa.findUnique({
+      where: { id: caixaId },
+    });
+
+    const caminhao = await prisma.caminhao.findUnique({
+      where: { id: caminhaoId },
+    });
+
+    if (!caixa) {
+      return NextResponse.json(
+        { error: "Caixa não encontrada." },
+        { status: 404 }
+      );
+    }
+
+    if (!caminhao) {
+      return NextResponse.json(
+        { error: "Caminhão não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    // 🔧 Liberar a caixa
     await prisma.caixa.update({
       where: { id: caixaId },
       data: { status: StatusCaixa.livre },
     });
 
-    // 🔧 Atualiza o caminhão para 'finalizado' → Isso envia ele pro histórico
+    // 🔧 Atualizar status do caminhão para finalizado
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: { status: StatusCaminhao.finalizado },
     });
 
+    // ✅ Criar registro no histórico (Analise)
+    await prisma.analise.create({
+      data: {
+        caminhaoId: caminhao.id,
+        status: StatusCaminhao.finalizado,
+        tanque,
+        observacoes,
+      },
+    });
+
     return NextResponse.json({
-      message: "Caixa liberada e caminhão finalizado.",
+      message: "Caixa liberada, caminhão finalizado e registrado no histórico.",
     });
   } catch (error) {
     console.error("Erro ao liberar caixa:", error);

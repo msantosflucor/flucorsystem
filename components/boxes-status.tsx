@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { Clock, Truck, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Clock, Truck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 
 type Caixa = {
   id: number;
@@ -19,36 +19,17 @@ type Caixa = {
   linha: { id: number; nome: string } | null;
   tipoResiduo: string;
   criadoEm: string | Date;
-  caminhaoId?: number | null; // 🔥 Para saber qual caminhão está na caixa
+  caminhaoId?: number | null;
+  caminhaoPlaca?: string | null;
 };
 
-export default function BoxesStatus() {
+interface BoxesStatusProps {
+  caixas: Caixa[];
+}
+
+export default function BoxesStatus({ caixas }: BoxesStatusProps) {
   const { toast } = useToast();
-  const [caixas, setCaixas] = useState<Caixa[]>([]);
   const [atualizando, setAtualizando] = useState<number | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  const fetchCaixas = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/caixas");
-      const data = await res.json();
-      setCaixas(data);
-    } catch (err) {
-      console.error("Erro ao buscar caixas:", err);
-      toast({
-        title: "Erro ao buscar caixas",
-        description: "Não foi possível carregar os dados das caixas.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCaixas();
-  }, []);
 
   const liberarCaixa = async (caixaId: number, caminhaoId: number | null) => {
     if (!caminhaoId) {
@@ -74,10 +55,11 @@ export default function BoxesStatus() {
 
       toast({
         title: "Caixa liberada",
-        description: "A caixa foi liberada e o caminhão foi finalizado.",
+        description: "A caixa foi liberada e o caminhão foi enviado para o histórico.",
       });
 
-      fetchCaixas();
+      // Atualiza os dados após liberação
+      window.location.reload();
     } catch (err) {
       console.error("Erro ao liberar caixa:", err);
       toast({
@@ -90,42 +72,13 @@ export default function BoxesStatus() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center w-full h-40">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (caixas.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm col-span-3 text-center">
-        Nenhuma caixa cadastrada.
-      </p>
-    );
-  }
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {caixas.map((caixa) => {
         const corBorda =
-          caixa.status === "ocupada"
-            ? "border-red-500"
-            : caixa.status === "livre"
-            ? "border-green-500"
-            : "border-gray-300";
-
+          caixa.status === "ocupada" ? "border-red-500" : "border-green-500";
         const corFundo =
-          caixa.status === "ocupada"
-            ? "bg-red-50"
-            : caixa.status === "livre"
-            ? "bg-green-50"
-            : "bg-gray-50";
-
-        const dataCriacao = caixa.criadoEm
-          ? new Date(caixa.criadoEm).toLocaleString("pt-BR")
-          : "Data não disponível";
+          caixa.status === "ocupada" ? "bg-red-50" : "bg-green-50";
 
         return (
           <Card
@@ -153,37 +106,45 @@ export default function BoxesStatus() {
                 Tipo: {caixa.tipoResiduo}
               </p>
             </CardHeader>
+
             <CardContent className="flex flex-col gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  Status: <strong>{caixa.status}</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>Criado em: {dataCriacao}</span>
-              </div>
-              {caixa.status === "ocupada" && (
+              {caixa.status === "ocupada" && caixa.caminhaoPlaca ? (
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <span>
+                    🚚 Placa: <strong>{caixa.caminhaoPlaca}</strong>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>
+                    Criado em:{" "}
+                    {new Date(caixa.criadoEm).toLocaleString("pt-BR")}
+                  </span>
+                </div>
+              )}
+
+              {caixa.status === "ocupada" ? (
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => liberarCaixa(caixa.id, caixa.caminhaoId || null)}
+                  onClick={() =>
+                    liberarCaixa(caixa.id, caixa.caminhaoId || null)
+                  }
                   disabled={atualizando === caixa.id}
                 >
                   {atualizando === caixa.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="ml-2">Liberando...</span>
+                    </>
                   ) : (
                     "Liberar Caixa"
                   )}
                 </Button>
-              )}
-              {caixa.status === "livre" && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  disabled
-                >
+              ) : (
+                <Button variant="default" size="sm" disabled>
                   Livre
                 </Button>
               )}

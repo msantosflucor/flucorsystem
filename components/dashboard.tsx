@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Tabs,
   TabsContent,
@@ -52,6 +52,10 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
           fetch("/api/caixas"),
         ]);
 
+        if (!res1.ok || !res2.ok || !res3.ok) {
+          throw new Error("Erro ao buscar dados.");
+        }
+
         const data1 = await res1.json();
         const data2 = await res2.json();
         const data3 = await res3.json();
@@ -61,6 +65,12 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         setCaixas(data3);
       } catch (err) {
         console.error("Erro ao buscar dados do dashboard:", err);
+        toast({
+          title: "Erro ao carregar dados",
+          description:
+            "Ocorreu um erro ao buscar dados. Verifique sua conexão ou tente novamente.",
+          variant: "destructive",
+        });
       }
     };
 
@@ -75,17 +85,17 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
     });
   };
 
-  const caminhõesAguardando = caminhoes.filter(
+  const caminhoesAguardando = caminhoes.filter(
     (c) => !c.status || c.status === "waiting" || c.status === "in_progress"
   );
 
-  const mediaEspera = caminhõesAguardando.length
+  const mediaEspera = caminhoesAguardando.length
     ? Math.floor(
-        caminhõesAguardando.reduce(
+        caminhoesAguardando.reduce(
           (acc, c) =>
             acc + (Date.now() - new Date(c.criadoEm).getTime()) / 60000,
           0
-        ) / caminhõesAguardando.length
+        ) / caminhoesAguardando.length
       )
     : 0;
 
@@ -173,17 +183,17 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {caminhõesAguardando.length}
+                  {caminhoesAguardando.length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {
-                    caminhõesAguardando.filter(
+                    caminhoesAguardando.filter(
                       (c) => c.status === "in_progress"
                     ).length
                   }{" "}
                   em análise,{" "}
                   {
-                    caminhõesAguardando.filter(
+                    caminhoesAguardando.filter(
                       (c) => !c.status || c.status === "waiting"
                     ).length
                   }{" "}
@@ -254,7 +264,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
-              <BoxesStatus />
+              <BoxesStatus caixas={caixas} />
             </div>
             <div className="space-y-4">
               <PendingSamplesList />

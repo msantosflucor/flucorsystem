@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { StatusCaixa, StatusCaminhao, TipoResiduo } from "@prisma/client";
+import { StatusCaminhao, StatusCaixa } from "@prisma/client";
 
 // ✅ POST - Cadastrar novo caminhão
 export async function POST(req: Request) {
@@ -14,22 +14,34 @@ export async function POST(req: Request) {
       );
     }
 
-    const novo = await prisma.caminhao.create({
+    // 🔍 Verifica se a caixa existe
+    const caixa = await prisma.caixa.findUnique({
+      where: { id: caixaId },
+    });
+
+    if (!caixa) {
+      return NextResponse.json(
+        { error: "Caixa não encontrada." },
+        { status: 404 }
+      );
+    }
+
+    // 🔧 Cria o caminhão
+    const novoCaminhao = await prisma.caminhao.create({
       data: {
         placa,
         origem,
         caixaId,
         aguardarNaCaixa,
-        status: aguardarNaCaixa
-          ? StatusCaminhao.waiting
-          : StatusCaminhao.in_progress,
-        tipo: tipo ?? TipoResiduo.Diversos,
+        status: aguardarNaCaixa ? StatusCaminhao.waiting : StatusCaminhao.in_progress,
+        tipo: tipo ?? "Diversos",
       },
       include: {
         caixa: true,
       },
     });
 
+    // 🔧 Atualiza o status da caixa para 'ocupada' se o caminhão for aguardar
     if (aguardarNaCaixa) {
       await prisma.caixa.update({
         where: { id: caixaId },
@@ -37,7 +49,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json(novo, { status: 201 });
+    return NextResponse.json(novoCaminhao, { status: 201 });
   } catch (error) {
     console.error("Erro ao salvar caminhão:", error);
     return NextResponse.json(
@@ -47,7 +59,7 @@ export async function POST(req: Request) {
   }
 }
 
-// ✅ GET - Listar TODOS os caminhões (sem filtro de status)
+// ✅ GET - Listar todos os caminhões
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
@@ -65,11 +77,13 @@ export async function GET() {
       criadoEm: c.criadoEm,
       status: c.status,
       tipo: c.tipo,
-      caixa: {
-        id: c.caixa?.id,
-        nome: c.caixa?.nome,
-        tipoResiduo: c.caixa?.tipoResiduo,
-      },
+      caixa: c.caixa
+        ? {
+            id: c.caixa.id,
+            nome: c.caixa.nome,
+            tipoResiduo: c.caixa.tipoResiduo,
+          }
+        : null,
     }));
 
     return NextResponse.json(resultado);
