@@ -36,29 +36,45 @@ export async function PATCH(
         },
       });
 
-      // Cria entrada no histórico (analise)
-      await prisma.analise.create({
-        data: {
-          caminhaoId: caminhaoAtual.id,
-          status: "finalizado",
-          tanque: "N/D",
-          observacoes: "Encerrado automaticamente ao liberar a caixa.",
-        },
+      // ⚠️ Verifica se já existe análise registrada para esse caminhão
+      const analiseExistente = await prisma.analise.findFirst({
+        where: { caminhaoId: caminhaoAtual.id },
       });
+
+      if (analiseExistente) {
+        // ✅ Atualiza para finalizado (mantendo tanque e observações existentes ou padrão)
+        await prisma.analise.update({
+          where: { id: analiseExistente.id },
+          data: {
+            status: "finalizado",
+            tanque: analiseExistente.tanque || "N/D",
+            observacoes: analiseExistente.observacoes || "Encerrado automaticamente ao liberar a caixa.",
+          },
+        });
+      } else {
+        // ✅ Cria nova entrada no histórico
+        await prisma.analise.create({
+          data: {
+            caminhaoId: caminhaoAtual.id,
+            status: "finalizado",
+            tanque: "N/D",
+            observacoes: "Encerrado automaticamente ao liberar a caixa.",
+          },
+        });
+      }
     }
 
     // 🔁 Busca próximo caminhão com destino à caixa (inclui liberado)
     const proximo = await prisma.caminhao.findFirst({
       where: {
         destinoCaixaId: caixaId,
-        status: { in: ["in_progress", "approved"] }, // ✅ único ajuste feito aqui
+        status: { in: ["in_progress", "approved"] },
       },
       orderBy: { criadoEm: "asc" },
     });
 
     if (proximo) {
       if (confirmar === true) {
-        // ✅ Atualiza caminhão puxado para a caixa
         await prisma.caminhao.update({
           where: { id: proximo.id },
           data: {

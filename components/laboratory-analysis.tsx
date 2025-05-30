@@ -106,35 +106,23 @@ export default function LaboratoryAnalysis() {
 
   const statusLabel = (status: string) => {
     switch (status) {
-      case "waiting":
-        return "Aguardando"
-      case "in_progress":
-        return "Em Análise"
-      case "approved":
-        return "Liberado"
-      case "incompatible":
-        return "Incompatível"
-      case "rejected":
-        return "Recusado"
-      default:
-        return "Indefinido"
+      case "waiting": return "Aguardando"
+      case "in_progress": return "Em Análise"
+      case "approved": return "Liberado"
+      case "incompatible": return "Incompatível"
+      case "rejected": return "Recusado"
+      default: return "Indefinido"
     }
   }
 
   const statusColor = (status: string) => {
     switch (status) {
-      case "waiting":
-        return "bg-yellow-50 border-yellow-300 text-yellow-700"
-      case "in_progress":
-        return "bg-blue-50 border-blue-300 text-blue-700"
-      case "approved":
-        return "bg-green-50 border-green-300 text-green-700"
-      case "incompatible":
-        return "bg-red-50 border-red-300 text-red-700"
-      case "rejected":
-        return "bg-gray-100 border-gray-300 text-gray-700"
-      default:
-        return "bg-muted"
+      case "waiting": return "bg-yellow-50 border-yellow-300 text-yellow-700"
+      case "in_progress": return "bg-blue-50 border-blue-300 text-blue-700"
+      case "approved": return "bg-green-50 border-green-300 text-green-700"
+      case "incompatible": return "bg-red-50 border-red-300 text-red-700"
+      case "rejected": return "bg-gray-100 border-gray-300 text-gray-700"
+      default: return "bg-muted"
     }
   }
 
@@ -150,7 +138,7 @@ export default function LaboratoryAnalysis() {
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
               Registros de Caminhões
-              <Badge>{caminhoes.length} registros</Badge>
+              <Badge>{caminhoes.filter(c => c.status !== "finalizado").length} registros</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -168,33 +156,35 @@ export default function LaboratoryAnalysis() {
                   </tr>
                 </thead>
                 <tbody>
-                  {caminhoes.map((c) => (
-                    <tr key={c.id} className="border-t hover:bg-muted/50">
-                      <td className="py-2 px-4 font-mono">{c.id}</td>
-                      <td className="py-2 px-4">{c.placa}</td>
-                      <td className="py-2 px-4">{c.origem}</td>
-                      <td className="py-2 px-4">{c.caixa?.nome || "N/A"}</td>
-                      <td className="py-2 px-4 flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        {getTimeElapsed(c.criadoEm)} min
-                      </td>
-                      <td className="py-2 px-4">
-                        <Badge
-                          variant="outline"
-                          className={statusColor(c.status)}
-                        >
-                          {statusLabel(c.status)}
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-4 flex gap-2">
-                        <Button size="sm" onClick={() => handleSelecionar(c.id)}>Analisar</Button>
-                        <Button size="icon" variant="outline" onClick={() => openDetailsDialog(c.id)}>
-                          <Info className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {caminhoes.length === 0 && (
+                  {caminhoes
+                    .filter((c) => c.status !== "finalizado")
+                    .map((c) => (
+                      <tr key={c.id} className="border-t hover:bg-muted/50">
+                        <td className="py-2 px-4 font-mono">{c.id}</td>
+                        <td className="py-2 px-4">{c.placa}</td>
+                        <td className="py-2 px-4">{c.origem}</td>
+                        <td className="py-2 px-4">{c.caixa?.nome || "N/A"}</td>
+                        <td className="py-2 px-4 flex items-center gap-1">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          {getTimeElapsed(c.criadoEm)} min
+                        </td>
+                        <td className="py-2 px-4">
+                          <Badge
+                            variant="outline"
+                            className={statusColor(c.status)}
+                          >
+                            {statusLabel(c.status)}
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-4 flex gap-2">
+                          <Button size="sm" onClick={() => handleSelecionar(c.id)}>Analisar</Button>
+                          <Button size="icon" variant="outline" onClick={() => openDetailsDialog(c.id)}>
+                            <Info className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  {caminhoes.filter((c) => c.status !== "finalizado").length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-6 text-center text-muted-foreground">
                         Nenhum registro encontrado.

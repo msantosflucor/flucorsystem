@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { StatusCaminhao } from "@prisma/client";
 
 export async function GET() {
   try {
     const analises = await prisma.analise.findMany({
       where: {
+        status: "finalizado", // ✅ Só análises com status finalizado
         caminhao: {
-          status: StatusCaminhao.finalizado, // ✅ Só mostra caminhões finalizados (após liberar caixa)
+          status: "finalizado", // ✅ Caminhão também precisa estar finalizado
         },
       },
       include: {
@@ -27,6 +27,7 @@ export async function GET() {
       manual: item.caminhao?.aguardarNaCaixa || false,
       observations: item.observacoes || "Sem observações",
       origin: item.caminhao?.origem || "N/D",
+      status: item.status, // 🔁 garante compatibilidade com o filtro do frontend
     }));
 
     return NextResponse.json(historico);

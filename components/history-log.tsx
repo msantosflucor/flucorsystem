@@ -37,13 +37,15 @@ export default function HistoryLog() {
     fetchHistory()
   }, [])
 
-  const filteredData = historyData.filter((item) => {
-    const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase())
-    const matchesDestination = destinationFilter && destinationFilter !== "all"
-      ? item.destination === destinationFilter
-      : true
-    return matchesPlate && matchesDestination
-  })
+  const filteredData = historyData
+    .filter((item) => item.status === "finalizado") // ✅ Garante que só finalizados aparecem
+    .filter((item) => {
+      const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase())
+      const matchesDestination = destinationFilter && destinationFilter !== "all"
+        ? item.destination === destinationFilter
+        : true
+      return matchesPlate && matchesDestination
+    })
 
   const openDetailsDialog = (record) => {
     setSelectedRecord(record)
