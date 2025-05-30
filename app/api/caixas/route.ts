@@ -8,15 +8,32 @@ export async function GET() {
       include: { linha: true },
     });
 
-    return NextResponse.json(
-      caixas.map((c) => ({
-        id: c.id,
-        nome: c.nome,
-        tipoResiduo: c.tipoResiduo,
-        status: c.status,
-        linha: c.linha?.nome || null,
-      }))
+    // Buscar placas dos caminhões ocupando as caixas
+    const caixasComPlaca = await Promise.all(
+      caixas.map(async (caixa) => {
+        let caminhaoPlaca = null;
+
+        if (caixa.status === "ocupada") {
+          const caminhao = await prisma.caminhao.findFirst({
+            where: { caixaId: caixa.id, status: "waiting" },
+            select: { placa: true },
+          });
+
+          caminhaoPlaca = caminhao?.placa || null;
+        }
+
+        return {
+          id: caixa.id,
+          nome: caixa.nome,
+          tipoResiduo: caixa.tipoResiduo,
+          status: caixa.status,
+          linha: caixa.linha?.nome || null,
+          caminhaoPlaca,
+        };
+      })
     );
+
+    return NextResponse.json(caixasComPlaca);
   } catch (error) {
     console.error("Erro ao buscar caixas:", error);
     return NextResponse.json(
