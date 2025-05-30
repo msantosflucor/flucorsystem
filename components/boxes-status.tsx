@@ -45,7 +45,6 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
         throw new Error(data.error || "Falha ao liberar a caixa.");
       }
 
-      // Primeiro toast: confirmação de liberação
       toast({
         title: "Caixa liberada",
         description: data.message,
@@ -76,7 +75,6 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
         });
       }
 
-      // Recarrega tudo ao final
       window.location.reload();
     } catch (err: any) {
       console.error(err);
@@ -136,10 +134,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
               ) : (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    Criado em:{" "}
-                    {new Date(caixa.criadoEm).toLocaleString("pt-BR")}
-                  </span>
+                  <span>Aguardando carga</span>
                 </div>
               )}
 

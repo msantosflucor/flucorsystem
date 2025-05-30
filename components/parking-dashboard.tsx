@@ -20,11 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ParkingDashboard() {
+  const { toast } = useToast();
   const [trucksData, setTrucksData] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [caixasDisponiveis, setCaixasDisponiveis] = useState<any[]>([]);
+  const [caixaSelecionada, setCaixaSelecionada] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
@@ -33,14 +37,11 @@ export default function ParkingDashboard() {
       try {
         const response = await fetch("/api/caminhoes");
         const data = await response.json();
-
-        // Caminhões ainda no pátio: sem caixa atribuída e não finalizados
         const filteredToPatio = data.filter((item: any) =>
           item.aguardarNaCaixa === false &&
           item.caixaId === null &&
           item.status !== "finalizado"
         );
-
         const mappedData = filteredToPatio.map((item: any) => ({
           id: item.id,
           plate: item.placa,
@@ -50,26 +51,67 @@ export default function ParkingDashboard() {
           type: item.tipo ?? "Diversos",
           time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
         }));
-
         setTrucksData(mappedData);
       } catch (error) {
         console.error("Erro ao buscar caminhões:", error);
       }
     };
-
     fetchTrucks();
   }, []);
+
+  const openDetailsDialog = async (truck: any) => {
+    setSelectedTruck(truck);
+    setCaixaSelecionada(null);
+    setDetailsDialogOpen(true);
+
+    try {
+      const response = await fetch("/api/caixas");
+      const data = await response.json();
+      const livres = data.filter((c: any) => c.status === "livre");
+      setCaixasDisponiveis(livres);
+    } catch (error) {
+      console.error("Erro ao buscar caixas:", error);
+    }
+  };
+
+  const encaminharParaCaixa = async () => {
+    if (!selectedTruck || !caixaSelecionada) return;
+
+    try {
+      const response = await fetch(`/api/caminhoes/${selectedTruck.id}/encaminhar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caixaId: Number(caixaSelecionada) }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: "Erro ao encaminhar",
+          description: result.error || "Falha desconhecida.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Caminhão encaminhado!",
+        description: `Encaminhado para a caixa com sucesso.`,
+      });
+
+      setDetailsDialogOpen(false);
+      setTrucksData(prev => prev.filter((t) => t.id !== selectedTruck.id));
+    } catch (error) {
+      console.error("Erro ao encaminhar:", error);
+    }
+  };
 
   const filteredTrucks = trucksData.filter((truck) => {
     const matchesStatus = statusFilter === "all" || truck.status === statusFilter;
     const matchesType = typeFilter === "all" || truck.type === typeFilter;
     return matchesStatus && matchesType;
   });
-
-  const openDetailsDialog = (truck: any) => {
-    setSelectedTruck(truck);
-    setDetailsDialogOpen(true);
-  };
 
   const getTruckBackgroundColor = (status: string) => {
     switch (status) {
@@ -105,23 +147,18 @@ export default function ParkingDashboard() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "approved":
-        return "Liberado";
-      case "in_progress":
-        return "Em Análise";
-      case "incompatible":
-        return "Incompatível";
-      case "rejected":
-        return "Recusado";
-      case "waiting":
-        return "Aguardando";
-      default:
-        return "Desconhecido";
+      case "approved": return "Liberado";
+      case "in_progress": return "Em Análise";
+      case "incompatible": return "Incompatível";
+      case "rejected": return "Recusado";
+      case "waiting": return "Aguardando";
+      default: return "Desconhecido";
     }
   };
 
   return (
     <div className="space-y-4">
+      {/* Filtros e título */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -161,6 +198,7 @@ export default function ParkingDashboard() {
         </div>
       </div>
 
+      {/* Cards de caminhões */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -175,9 +213,7 @@ export default function ParkingDashboard() {
             {filteredTrucks.map((truck) => (
               <div
                 key={truck.id}
-                className={`relative rounded-md border p-3 ${getTruckBackgroundColor(
-                  truck.status
-                )}`}
+                className={`relative rounded-md border p-3 ${getTruckBackgroundColor(truck.status)}`}
               >
                 <div className="absolute top-2 right-2">{getTruckStatusIcon(truck.status)}</div>
                 <div className="space-y-2">
@@ -212,6 +248,7 @@ export default function ParkingDashboard() {
         </CardContent>
       </Card>
 
+      {/* Modal de Detalhes */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -223,6 +260,7 @@ export default function ParkingDashboard() {
 
           {selectedTruck && (
             <div className="space-y-4 py-2">
+              {/* Informações do caminhão */}
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-lg">{selectedTruck.plate}</h3>
                 <div className="flex gap-2 items-center">
@@ -237,12 +275,8 @@ export default function ParkingDashboard() {
                   <div className="font-medium">{selectedTruck.id}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-500">Status</div>
-                  <div className="font-medium">{getStatusText(selectedTruck.status)}</div>
-                </div>
-                <div>
                   <div className="text-sm text-gray-500">Tipo de Resíduo</div>
-                  <div className="font-medium text-base">{selectedTruck.type}</div>
+                  <div className="font-medium">{selectedTruck.type}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tempo de Espera</div>
@@ -252,21 +286,35 @@ export default function ParkingDashboard() {
                   <div className="text-sm text-gray-500">Origem</div>
                   <div className="font-medium">{selectedTruck.origin}</div>
                 </div>
-                {selectedTruck.box && (
-                  <div>
-                    <div className="text-sm text-gray-500">Caixa</div>
-                    <div className="font-medium">{selectedTruck.box}</div>
-                  </div>
-                )}
+              </div>
+
+              {/* Select de caixas */}
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Caixa Disponível</div>
+                <Select onValueChange={setCaixaSelecionada}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a caixa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {caixasDisponiveis.map((caixa: any) => (
+                      <SelectItem key={caixa.id} value={String(caixa.id)}>
+                        {caixa.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-between pt-2">
+                <Button variant="secondary" onClick={() => setDetailsDialogOpen(false)}>
+                  Fechar
+                </Button>
+                <Button onClick={encaminharParaCaixa} disabled={!caixaSelecionada}>
+                  Encaminhar para Caixa
+                </Button>
               </div>
             </div>
           )}
-
-          <div className="flex justify-end">
-            <DialogClose asChild>
-              <Button>Fechar</Button>
-            </DialogClose>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
