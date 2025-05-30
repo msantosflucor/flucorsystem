@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔧 Atualizar apenas o status do caminhão (approved, rejected, incompatible, etc.)
+    // 🔧 Atualizar o status do caminhão (approved, rejected, incompatible, etc.)
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: { status },

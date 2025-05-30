@@ -2,30 +2,19 @@
 
 import { useEffect, useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
-  RadioGroup,
-  RadioGroupItem,
+  RadioGroup, RadioGroupItem
 } from "@/components/ui/radio-group";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Truck, CheckCircle2 } from "lucide-react";
-import StatusIndicator from "@/components/status-indicator";
 
 export default function TruckRegistration() {
   const { toast } = useToast();
@@ -36,10 +25,9 @@ export default function TruckRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [generatedId, setGeneratedId] = useState("");
-
   const [caixas, setCaixas] = useState<any[]>([]);
 
-  // Buscar caixas do backend
+  // Buscar todas as caixas (não apenas livres)
   useEffect(() => {
     const fetchCaixas = async () => {
       try {
@@ -50,7 +38,7 @@ export default function TruckRegistration() {
         console.error("Erro ao buscar caixas:", error);
         toast({
           title: "Erro",
-          description: "Erro ao carregar caixas.",
+          description: "Erro ao carregar caixas do banco.",
           variant: "destructive",
         });
       }

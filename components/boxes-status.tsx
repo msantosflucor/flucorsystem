@@ -31,40 +31,58 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
   const { toast } = useToast();
   const [atualizando, setAtualizando] = useState<number | null>(null);
 
-  const liberarCaixa = async (caixaId: number, caminhaoId: number | null) => {
-    if (!caminhaoId) {
-      toast({
-        title: "Erro",
-        description: "Nenhum caminhão encontrado nesta caixa.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const liberarCaixa = async (caixaId: number) => {
     setAtualizando(caixaId);
+
     try {
-      const res = await fetch("/api/caixas", {
+      const res = await fetch(`/api/caixas/${caixaId}/liberar`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caixaId, caminhaoId }),
       });
+
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error("Erro ao liberar a caixa.");
+        throw new Error(data.error || "Falha ao liberar a caixa.");
       }
 
+      // Primeiro toast: confirmação de liberação
       toast({
         title: "Caixa liberada",
-        description: "A caixa foi liberada e o caminhão foi enviado para o histórico.",
+        description: data.message,
       });
 
-      // Atualiza os dados após liberação
+      if (data.proximo) {
+        const confirmar = window.confirm(
+          `Há um caminhão no pátio com destino a esta caixa: ${data.proximo.placa}. Deseja puxá-lo agora?`
+        );
+
+        const segundaResposta = await fetch(`/api/caixas/${caixaId}/liberar`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ confirmar }),
+        });
+
+        const segundaData = await segundaResposta.json();
+
+        if (!segundaResposta.ok) {
+          throw new Error(segundaData.error || "Falha ao puxar caminhão.");
+        }
+
+        toast({
+          title: confirmar ? "Caminhão puxado" : "Aguardando seleção manual",
+          description: segundaData.message,
+        });
+      }
+
+      // Recarrega tudo ao final
       window.location.reload();
-    } catch (err) {
-      console.error("Erro ao liberar caixa:", err);
+    } catch (err: any) {
+      console.error(err);
       toast({
-        title: "Erro",
-        description: "Não foi possível liberar a caixa.",
+        title: "Erro ao liberar",
+        description: err.message || "Falha inesperada.",
         variant: "destructive",
       });
     } finally {
@@ -129,9 +147,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() =>
-                    liberarCaixa(caixa.id, caixa.caminhaoId || null)
-                  }
+                  onClick={() => liberarCaixa(caixa.id)}
                   disabled={atualizando === caixa.id}
                 >
                   {atualizando === caixa.id ? (

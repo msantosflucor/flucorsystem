@@ -57,13 +57,15 @@ model Caminhao {
   id              Int               @id @default(autoincrement())
   placa           String
   origem          String?
-  caixaId         Int
+  caixaId         Int?              // 🔄 Agora é opcional
+  destinoCaixaId  Int?              // ✅ Campo adicionado
   aguardarNaCaixa Boolean
   criadoEm        DateTime          @default(now())
-  status          StatusCaminhao    @default(waiting) // ✅ Fluxo inicial correto
+  status          StatusCaminhao    @default(waiting)
   tipo            TipoResiduo       @default(Diversos)
 
-  caixa           Caixa             @relation(fields: [caixaId], references: [id])
+  caixa           Caixa?            @relation("CaixaAtual", fields: [caixaId], references: [id])
+  destinoCaixa    Caixa?            @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
   analises        Analise[]
 }
 
@@ -91,11 +93,12 @@ model Caixa {
   nome        String       @unique
   status      StatusCaixa
   tipoResiduo TipoResiduo
-  linhaId     Int?         
+  linhaId     Int?
   criadoEm    DateTime     @default(now())
 
   linha       Linha?       @relation(fields: [linhaId], references: [id])
-  caminhoes   Caminhao[]
+  caminhoes   Caminhao[]   @relation("CaixaAtual")
+  destinoPara Caminhao[]   @relation("CaixaDestino") // ✅ Inversa do destinoCaixa
 }
 
 //////////////////////////

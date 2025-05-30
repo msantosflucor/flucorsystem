@@ -14,10 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔍 Verifica se a caixa existe
-    const caixa = await prisma.caixa.findUnique({
-      where: { id: caixaId },
-    });
+    const caixa = await prisma.caixa.findUnique({ where: { id: caixaId } });
 
     if (!caixa) {
       return NextResponse.json(
@@ -26,14 +23,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔧 Cria o caminhão
+    // 🚚 Se o caminhão deve aguardar na caixa, ele entra direto como "waiting"
+    // 🅿️ Se não for aguardar, entra no pátio (status in_progress) e grava o destino
     const novoCaminhao = await prisma.caminhao.create({
       data: {
         placa,
         origem,
-        caixaId,
+        caixaId: aguardarNaCaixa ? caixaId : null,
+        destinoCaixaId: aguardarNaCaixa ? null : caixaId,
         aguardarNaCaixa,
-        status: aguardarNaCaixa ? StatusCaminhao.waiting : StatusCaminhao.in_progress,
+        status: aguardarNaCaixa
+          ? StatusCaminhao.waiting
+          : StatusCaminhao.in_progress,
         tipo: tipo ?? "Diversos",
       },
       include: {
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // 🔧 Atualiza o status da caixa para 'ocupada' se o caminhão for aguardar
+    // 🔄 Atualiza status da caixa se o caminhão estiver aguardando nela
     if (aguardarNaCaixa) {
       await prisma.caixa.update({
         where: { id: caixaId },
@@ -73,10 +74,11 @@ export async function GET() {
       id: c.id,
       placa: c.placa,
       origem: c.origem,
-      aguardarNaCaixa: c.aguardarNaCaixa,
       criadoEm: c.criadoEm,
       status: c.status,
       tipo: c.tipo,
+      aguardarNaCaixa: c.aguardarNaCaixa,
+      destinoCaixaId: c.destinoCaixaId,
       caixa: c.caixa
         ? {
             id: c.caixa.id,
