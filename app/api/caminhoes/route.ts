@@ -23,8 +23,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🚚 Se o caminhão deve aguardar na caixa, ele entra direto como "waiting"
-    // 🅿️ Se não for aguardar, entra no pátio (status in_progress) e grava o destino
     const novoCaminhao = await prisma.caminhao.create({
       data: {
         placa,
@@ -42,7 +40,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // 🔄 Atualiza status da caixa se o caminhão estiver aguardando nela
     if (aguardarNaCaixa) {
       await prisma.caixa.update({
         where: { id: caixaId },
@@ -79,6 +76,7 @@ export async function GET() {
       tipo: c.tipo,
       aguardarNaCaixa: c.aguardarNaCaixa,
       destinoCaixaId: c.destinoCaixaId,
+      caixaId: c.caixaId, // 👈 campo essencial para o estacionamento funcionar
       caixa: c.caixa
         ? {
             id: c.caixa.id,

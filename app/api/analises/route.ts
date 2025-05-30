@@ -24,10 +24,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔧 Atualizar o status do caminhão (approved, rejected, incompatible, etc.)
+    // 🔧 Atualizar status do caminhão e manter vínculo com a caixa, se houver
     await prisma.caminhao.update({
       where: { id: caminhaoId },
-      data: { status },
+      data: {
+        status,
+        caixaId: caminhao.caixaId ?? null, // Garante que não perca a referência
+      },
     });
 
     return NextResponse.json(

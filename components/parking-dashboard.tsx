@@ -34,8 +34,12 @@ export default function ParkingDashboard() {
         const response = await fetch("/api/caminhoes");
         const data = await response.json();
 
-        // Filtra apenas os caminhões que DEVEM IR PARA O PÁTIO
-        const filteredToPatio = data.filter((item: any) => item.aguardarNaCaixa === false);
+        // Caminhões ainda no pátio: sem caixa atribuída e não finalizados
+        const filteredToPatio = data.filter((item: any) =>
+          item.aguardarNaCaixa === false &&
+          item.caixaId === null &&
+          item.status !== "finalizado"
+        );
 
         const mappedData = filteredToPatio.map((item: any) => ({
           id: item.id,

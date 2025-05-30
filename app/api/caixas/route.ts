@@ -15,7 +15,10 @@ export async function GET() {
 
         if (caixa.status === "ocupada") {
           const caminhao = await prisma.caminhao.findFirst({
-            where: { caixaId: caixa.id, status: "waiting" },
+            where: {
+              caixaId: caixa.id,
+              status: { in: ["waiting", "approved"] }, // ✅ inclui liberados também
+            },
             select: { placa: true },
           });
 

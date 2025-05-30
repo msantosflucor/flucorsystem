@@ -47,17 +47,18 @@ export async function PATCH(
       });
     }
 
-    // Busca próximo caminhão com destino à caixa
+    // 🔁 Busca próximo caminhão com destino à caixa (inclui liberado)
     const proximo = await prisma.caminhao.findFirst({
       where: {
-        status: "in_progress",
         destinoCaixaId: caixaId,
+        status: { in: ["in_progress", "approved"] }, // ✅ único ajuste feito aqui
       },
       orderBy: { criadoEm: "asc" },
     });
 
     if (proximo) {
       if (confirmar === true) {
+        // ✅ Atualiza caminhão puxado para a caixa
         await prisma.caminhao.update({
           where: { id: proximo.id },
           data: {
