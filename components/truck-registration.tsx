@@ -27,7 +27,6 @@ export default function TruckRegistration() {
   const [generatedId, setGeneratedId] = useState("");
   const [caixas, setCaixas] = useState<any[]>([]);
 
-  // Buscar todas as caixas (não apenas livres)
   useEffect(() => {
     const fetchCaixas = async () => {
       try {
@@ -61,6 +60,8 @@ export default function TruckRegistration() {
     setIsSubmitting(true);
 
     try {
+      const caixaSelecionada = caixas.find((c) => c.id === selectedBoxId);
+
       const res = await fetch("/api/caminhoes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,6 +70,7 @@ export default function TruckRegistration() {
           origem: origin,
           caixaId: selectedBoxId,
           aguardarNaCaixa: waitingOption === "wait",
+          tipo: caixaSelecionada?.tipoResiduo || "Diversos",
         }),
       });
 
@@ -77,8 +79,6 @@ export default function TruckRegistration() {
       const data = await res.json();
       setGeneratedId(data.id);
       setIsSuccess(true);
-
-      const caixaSelecionada = caixas.find((c) => c.id === selectedBoxId);
 
       toast({
         title: "Caminhão registrado",

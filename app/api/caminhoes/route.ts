@@ -64,6 +64,7 @@ export async function GET() {
       orderBy: { criadoEm: "desc" },
       include: {
         caixa: true,
+        destinoCaixa: true, // 👈 incluído para casos no pátio
       },
     });
 
@@ -76,12 +77,18 @@ export async function GET() {
       tipo: c.tipo,
       aguardarNaCaixa: c.aguardarNaCaixa,
       destinoCaixaId: c.destinoCaixaId,
-      caixaId: c.caixaId, // 👈 campo essencial para o estacionamento funcionar
+      caixaId: c.caixaId,
       caixa: c.caixa
         ? {
             id: c.caixa.id,
             nome: c.caixa.nome,
             tipoResiduo: c.caixa.tipoResiduo,
+          }
+        : c.destinoCaixa
+        ? {
+            id: c.destinoCaixa.id,
+            nome: c.destinoCaixa.nome,
+            tipoResiduo: c.destinoCaixa.tipoResiduo,
           }
         : null,
     }));

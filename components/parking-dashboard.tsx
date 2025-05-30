@@ -47,7 +47,7 @@ export default function ParkingDashboard() {
           origin: item.origem ?? "Não informado",
           box: item.caixa?.nome ?? null,
           status: item.status ?? "waiting",
-          type: item.caixa?.tipoResiduo ?? "Diversos",
+          type: item.tipo ?? "Diversos",
           time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
         }));
 

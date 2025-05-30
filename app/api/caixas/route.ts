@@ -17,7 +17,7 @@ export async function GET() {
           const caminhao = await prisma.caminhao.findFirst({
             where: {
               caixaId: caixa.id,
-              status: { in: ["waiting", "approved"] }, // ✅ inclui liberados também
+              status: { in: ["waiting", "approved"] },
             },
             select: { placa: true },
           });
@@ -30,8 +30,9 @@ export async function GET() {
           nome: caixa.nome,
           tipoResiduo: caixa.tipoResiduo,
           status: caixa.status,
-          linha: caixa.linha?.nome || null,
+          linha: caixa.linha ? { id: caixa.linha.id, nome: caixa.linha.nome } : null,
           caminhaoPlaca,
+          criadoEm: caixa.criadoEm,
         };
       })
     );
