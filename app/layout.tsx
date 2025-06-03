@@ -2,9 +2,14 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'FLUCOR System',
+  description: 'Sistema interno da Flucor',
+  generator: 'Next.js',
+  applicationName: 'FLUCOR System',
+  authors: [{ name: 'Marcos' }],
+  colorScheme: 'light',
+  themeColor: '#ffffff',
+  viewport: 'width=device-width, initial-scale=1.0',
 }
 
 export default function RootLayout({
@@ -13,8 +18,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="pt-BR">
+      <head />
+      <body className="bg-white text-black antialiased">{children}</body>
     </html>
   )
 }

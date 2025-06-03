@@ -8,7 +8,7 @@ datasource db {
 }
 
 //////////////////////////
-// ENUMS
+// ENUMS EXISTENTES
 //////////////////////////
 
 enum StatusLinha {
@@ -36,6 +36,24 @@ enum TipoResiduo {
   Alcalino
   Acidos
   Lodo
+}
+
+//////////////////////////
+// NOVOS ENUMS (LOGIN)
+//////////////////////////
+
+enum Role {
+  SYSADMIN
+  PADRAO
+}
+
+enum Modulo {
+  DASHBOARD
+  LABORATORIO
+  HISTORICO
+  ESTACIONAMENTO
+  LINHAS
+  CAIXAS
 }
 
 //////////////////////////
@@ -98,7 +116,7 @@ model Caixa {
 
   linha       Linha?       @relation(fields: [linhaId], references: [id])
   caminhoes   Caminhao[]   @relation("CaixaAtual")
-  destinoPara Caminhao[]   @relation("CaixaDestino") // ✅ Inversa do destinoCaixa
+  destinoPara Caminhao[]   @relation("CaixaDestino")
 }
 
 //////////////////////////
@@ -118,4 +136,29 @@ model Linha {
   criadoEm          DateTime     @default(now())
 
   caixas            Caixa[]
+}
+
+//////////////////////////
+// TABELA DE USUÁRIOS
+//////////////////////////
+
+model Usuario {
+  id          Int         @id @default(autoincrement())
+  username    String      @unique
+  senhaHash   String
+  role        Role        @default(PADRAO)
+  permissoes  Permissao[]
+  criadoEm    DateTime    @default(now())
+}
+
+//////////////////////////
+// TABELA DE PERMISSÕES
+//////////////////////////
+
+model Permissao {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  modulo     Modulo
+
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
 }
