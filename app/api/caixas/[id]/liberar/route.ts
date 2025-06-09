@@ -36,7 +36,7 @@ export async function PATCH(
         },
       });
 
-      // ⚠️ Verifica se já existe análise registrada para esse caminhão
+      // ⚠ Verifica se já existe análise registrada para esse caminhão
       const analiseExistente = await prisma.analise.findFirst({
         where: { caminhaoId: caminhaoAtual.id },
       });
@@ -78,9 +78,9 @@ export async function PATCH(
         await prisma.caminhao.update({
           where: { id: proximo.id },
           data: {
-            status: "waiting",
             caixaId,
             destinoCaixaId: null,
+            ...(proximo.status === "in_progress" && { status: "waiting" }),
           },
         });
 

@@ -32,12 +32,20 @@ export async function PATCH(
       return NextResponse.json({ error: "A caixa selecionada não está livre." }, { status: 400 });
     }
 
+    const caminhao = await prisma.caminhao.findUnique({
+      where: { id: caminhaoId },
+    });
+
+    if (!caminhao) {
+      return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
+    }
+
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
-        status: "waiting",
         caixaId: caixa.id,
         destinoCaixaId: null,
+        ...(caminhao.status === "in_progress" && { status: "waiting" }),
       },
     });
 

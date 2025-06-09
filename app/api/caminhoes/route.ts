@@ -64,7 +64,7 @@ export async function GET() {
       orderBy: { criadoEm: "desc" },
       include: {
         caixa: true,
-        destinoCaixa: true, // 👈 incluído para casos no pátio
+        destinoCaixa: true,
       },
     });
 
@@ -73,6 +73,7 @@ export async function GET() {
       placa: c.placa,
       origem: c.origem,
       criadoEm: c.criadoEm,
+      horaColeta: c.horaColeta, // ✅ Adicionado aqui
       status: c.status,
       tipo: c.tipo,
       aguardarNaCaixa: c.aguardarNaCaixa,

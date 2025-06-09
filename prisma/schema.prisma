@@ -80,6 +80,7 @@ model Caminhao {
   destinoCaixaId  Int?              // ✅ Campo adicionado
   aguardarNaCaixa Boolean
   criadoEm        DateTime          @default(now())
+  horaColeta      DateTime?         // ✅ NOVO CAMPO - Data/hora da coleta
   status          StatusCaminhao    @default(waiting)
   tipo            TipoResiduo       @default(Diversos)
 

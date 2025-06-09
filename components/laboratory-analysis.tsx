@@ -1,130 +1,137 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 import {
   Card, CardContent, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+} from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import {
   Clock, FlaskConical, AlertTriangle, CheckCircle2, Info,
-} from "lucide-react"
+} from "lucide-react";
 
 export default function LaboratoryAnalysis() {
-  const [caminhoes, setCaminhoes] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState("pending")
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [status, setStatus] = useState("")
-  const [tanque, setTanque] = useState("")
-  const [observacoes, setObservacoes] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
+  const [caminhoes, setCaminhoes] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("pending");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [status, setStatus] = useState("");
+  const [tanque, setTanque] = useState("");
+  const [observacoes, setObservacoes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const fetchCaminhoes = async () => {
     try {
-      const res = await fetch("/api/caminhoes")
-      const data = await res.json()
-      setCaminhoes(data)
+      const res = await fetch("/api/caminhoes");
+      const data = await res.json();
+      setCaminhoes(data);
     } catch (err) {
-      console.error("Erro ao buscar caminhões:", err)
+      console.error("Erro ao buscar caminhões:", err);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchCaminhoes()
-  }, [])
+    fetchCaminhoes();
+  }, []);
 
   const getTimeElapsed = (createdAt: string) => {
-    const diff = Date.now() - new Date(createdAt).getTime()
-    return Math.floor(diff / 60000)
-  }
+    const diff = Date.now() - new Date(createdAt).getTime();
+    return Math.floor(diff / 60000);
+  };
 
   const handleSelecionar = (id: number) => {
-    setSelectedId(id)
-    setActiveTab("analysis")
-    const selected = caminhoes.find(c => c.id === id)
-    setStatus(selected?.status || "")
-    setTanque("")
-    setObservacoes("")
-  }
+    const selected = caminhoes.find(c => c.id === id);
+    if (!selected?.horaColeta) {
+      alert("⚠️ A coleta precisa ser registrada antes da análise.");
+      return;
+    }
+    setSelectedId(id);
+    setActiveTab("analysis");
+    setStatus(selected?.status || "");
+    setTanque("");
+    setObservacoes("");
+  };
 
   const openDetailsDialog = (id: number) => {
-    setSelectedId(id)
-    setDetailsDialogOpen(true)
-  }
+    setSelectedId(id);
+    setDetailsDialogOpen(true);
+  };
 
-  const sample = caminhoes.find((c) => c.id === selectedId)
+  const coletarAmostra = async (id: number) => {
+    const confirmar = window.confirm("Confirmar coleta?");
+    if (!confirmar) return;
+    try {
+      const res = await fetch(`/api/caminhoes/${id}/coletar`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Erro ao registrar coleta");
+      await fetchCaminhoes();
+    } catch (err) {
+      console.error("Falha na coleta:", err);
+      alert("Erro ao registrar hora da coleta.");
+    }
+  };
+
+  const sample = caminhoes.find((c) => c.id === selectedId);
 
   const handleSubmit = async () => {
     if (!selectedId || !status || !tanque) {
-      alert("Preencha todos os campos obrigatórios.")
-      return
+      alert("Preencha todos os campos obrigatórios.");
+      return;
     }
-
     if ((status === "incompatible" || status === "rejected") && !observacoes) {
-      alert("Observações obrigatórias para incompatíveis ou recusados.")
-      return
+      alert("Observações obrigatórias para incompatíveis ou recusados.");
+      return;
     }
 
-    setIsSubmitting(true)
-
+    setIsSubmitting(true);
     try {
       const res = await fetch("/api/analises", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caminhaoId: selectedId,
-          status,
-          tanque,
-          observacoes,
-        }),
-      })
-
-      if (!res.ok) throw new Error("Falha ao salvar")
-
-      await fetchCaminhoes()
-
-      setSelectedId(null)
-      setStatus("")
-      setTanque("")
-      setObservacoes("")
-      setActiveTab("pending")
+        body: JSON.stringify({ caminhaoId: selectedId, status, tanque, observacoes }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      await fetchCaminhoes();
+      setSelectedId(null);
+      setStatus("");
+      setTanque("");
+      setObservacoes("");
+      setActiveTab("pending");
     } catch (err) {
-      console.error("Erro ao registrar análise:", err)
-      alert("Erro ao registrar análise.")
+      console.error("Erro ao registrar análise:", err);
+      alert("Erro ao registrar análise.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const statusLabel = (status: string) => {
     switch (status) {
-      case "waiting": return "Aguardando"
-      case "in_progress": return "Em Análise"
-      case "approved": return "Liberado"
-      case "incompatible": return "Incompatível"
-      case "rejected": return "Recusado"
-      default: return "Indefinido"
+      case "waiting": return "Aguardando";
+      case "in_progress": return "Em Análise";
+      case "approved": return "Liberado";
+      case "incompatible": return "Incompatível";
+      case "rejected": return "Recusado";
+      default: return "Indefinido";
     }
-  }
+  };
 
   const statusColor = (status: string) => {
     switch (status) {
-      case "waiting": return "bg-yellow-50 border-yellow-300 text-yellow-700"
-      case "in_progress": return "bg-blue-50 border-blue-300 text-blue-700"
-      case "approved": return "bg-green-50 border-green-300 text-green-700"
-      case "incompatible": return "bg-red-50 border-red-300 text-red-700"
-      case "rejected": return "bg-gray-100 border-gray-300 text-gray-700"
-      default: return "bg-muted"
+      case "waiting": return "bg-yellow-50 border-yellow-300 text-yellow-700";
+      case "in_progress": return "bg-blue-50 border-blue-300 text-blue-700";
+      case "approved": return "bg-green-50 border-green-300 text-green-700";
+      case "incompatible": return "bg-red-50 border-red-300 text-red-700";
+      case "rejected": return "bg-gray-100 border-gray-300 text-gray-700";
+      default: return "bg-muted";
     }
-  }
+  };
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -169,14 +176,16 @@ export default function LaboratoryAnalysis() {
                           {getTimeElapsed(c.criadoEm)} min
                         </td>
                         <td className="py-2 px-4">
-                          <Badge
-                            variant="outline"
-                            className={statusColor(c.status)}
-                          >
+                          <Badge variant="outline" className={statusColor(c.status)}>
                             {statusLabel(c.status)}
                           </Badge>
                         </td>
                         <td className="py-2 px-4 flex gap-2">
+                          {!c.horaColeta && (
+                            <Button variant="outline" onClick={() => coletarAmostra(c.id)}>
+                              Coletar
+                            </Button>
+                          )}
                           <Button size="sm" onClick={() => handleSelecionar(c.id)}>Analisar</Button>
                           <Button size="icon" variant="outline" onClick={() => openDetailsDialog(c.id)}>
                             <Info className="w-4 h-4" />
@@ -203,8 +212,7 @@ export default function LaboratoryAnalysis() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FlaskConical className="h-5 w-5" />
-                Registrar Análise Laboratorial
+                <FlaskConical className="h-5 w-5" /> Registrar Análise Laboratorial
               </CardTitle>
             </CardHeader>
 
@@ -214,11 +222,8 @@ export default function LaboratoryAnalysis() {
                 <div><strong>Placa:</strong> {sample.placa}</div>
                 <div><strong>Origem:</strong> {sample.origem}</div>
                 <div><strong>Caixa:</strong> {sample.caixa?.nome || "N/A"}</div>
-                <div><strong>Data:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
-                <div className="flex items-center gap-1 col-span-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span><strong>Tempo de Espera:</strong> {getTimeElapsed(sample.criadoEm)} minutos</span>
-                </div>
+                <div><strong>Hora da entrada:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
+                <div><strong>Hora da coleta:</strong> {sample.horaColeta ? new Date(sample.horaColeta).toLocaleString("pt-BR") : "N/A"}</div>
               </div>
 
               <div className="space-y-2">
@@ -275,7 +280,6 @@ export default function LaboratoryAnalysis() {
           <DialogHeader>
             <DialogTitle>Detalhes do Registro</DialogTitle>
           </DialogHeader>
-
           {sample && (
             <div className="space-y-4">
               <div><strong>ID:</strong> {sample.id}</div>
@@ -285,7 +289,6 @@ export default function LaboratoryAnalysis() {
               <div><strong>Data:</strong> {new Date(sample.criadoEm).toLocaleString()}</div>
             </div>
           )}
-
           <div className="flex justify-end mt-4">
             <DialogClose asChild>
               <Button>Fechar</Button>
@@ -294,5 +297,5 @@ export default function LaboratoryAnalysis() {
         </DialogContent>
       </Dialog>
     </Tabs>
-  )
+  );
 }

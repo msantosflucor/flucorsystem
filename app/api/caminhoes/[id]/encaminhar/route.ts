@@ -48,13 +48,12 @@ export async function PATCH(req: Request, { params }: Params) {
       );
     }
 
-    // Atualiza caminhão e caixa
     await prisma.$transaction([
       prisma.caminhao.update({
         where: { id: caminhaoId },
         data: {
-          caixaId: caixaId,
-          status: "waiting", // aguardando na caixa
+          caixaId,
+          ...(caminhao.status === "in_progress" && { status: "waiting" }),
         },
       }),
       prisma.caixa.update({
