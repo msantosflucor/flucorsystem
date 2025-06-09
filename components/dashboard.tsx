@@ -95,14 +95,9 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
   };
 
   const handleLogout = () => {
-    // Remove o cookie de autenticação
     document.cookie = "token=; path=/; max-age=0";
-
-    // Remove dados do localStorage
     localStorage.removeItem("permissoes");
     localStorage.removeItem("role");
-
-    // Redireciona para login
     router.push("/login");
   };
 
@@ -167,11 +162,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
                 Cadastrar Usuário
               </Button>
             )}
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleLogout}
-          >
+          <Button variant="destructive" size="sm" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             Sair
           </Button>
@@ -226,92 +217,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         {permissoes.includes("DASHBOARD") && (
           <TabsContent value="dashboard" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Caminhões Aguardando
-                  </CardTitle>
-                  <Truck className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {caminhoesAguardando.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {
-                      caminhoesAguardando.filter(
-                        (c) => c.status === "in_progress"
-                      ).length
-                    }{" "}
-                    em análise,{" "}
-                    {
-                      caminhoesAguardando.filter(
-                        (c) => !c.status || c.status === "waiting"
-                      ).length
-                    }{" "}
-                    aguardando
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Tempo Médio de Espera
-                  </CardTitle>
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mediaEspera} min</div>
-                  <p className="text-xs text-muted-foreground">
-                    baseado nos registros
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Caixas Disponíveis
-                  </CardTitle>
-                  <svg
-                    className="h-5 w-5 text-muted-foreground"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <rect width="7" height="7" x="3" y="3" rx="1" />
-                    <rect width="7" height="7" x="14" y="3" rx="1" />
-                    <rect width="7" height="7" x="14" y="14" rx="1" />
-                    <rect width="7" height="7" x="3" y="14" rx="1" />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {caixasLivres}/{totalCaixas}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    atualizando automaticamente
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Análises Hoje
-                  </CardTitle>
-                  <FlaskConical className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {analisesHojeTotal.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {analisesLiberadas} liberadas, {analisesRecusadas} recusadas
-                  </p>
-                </CardContent>
-              </Card>
+              {/* ... cards ... */}
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">

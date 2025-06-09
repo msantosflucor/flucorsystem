@@ -54,6 +54,7 @@ enum Modulo {
   ESTACIONAMENTO
   LINHAS
   CAIXAS
+  CAMINHAO // ✅ Adicionado
 }
 
 //////////////////////////

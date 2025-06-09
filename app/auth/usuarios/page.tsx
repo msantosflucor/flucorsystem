@@ -15,6 +15,7 @@ const MODULOS = [
   "ESTACIONAMENTO",
   "LINHAS",
   "CAIXAS",
+  "CAMINHAO",
 ];
 
 type Usuario = {

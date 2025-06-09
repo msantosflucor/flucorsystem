@@ -31,10 +31,9 @@ export default function LoginPage() {
         throw new Error(data.error || "Falha no login.");
       }
 
-      // ✅ Salva role e permissoes no localStorage
       localStorage.setItem("role", data.usuario.role);
       localStorage.setItem("permissoes", JSON.stringify(data.usuario.permissoes));
-      localStorage.setItem("token", data.token || ""); // se estiver usando token também
+      localStorage.setItem("token", data.token || "");
 
       toast({
         title: "Login realizado com sucesso!",
@@ -52,6 +51,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleLogin();
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="text-center">
@@ -67,22 +71,24 @@ export default function LoginPage() {
         <Card className="w-[350px] mx-auto shadow-lg">
           <CardHeader />
           <CardContent className="space-y-4">
-            <Input
-              placeholder="Usuário"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              disabled={loading}
-            />
-            <Input
-              placeholder="Senha"
-              type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              disabled={loading}
-            />
-            <Button className="w-full" onClick={handleLogin} disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input
+                placeholder="Usuário"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                disabled={loading}
+              />
+              <Input
+                placeholder="Senha"
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                disabled={loading}
+              />
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Entrando..." : "Entrar"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
