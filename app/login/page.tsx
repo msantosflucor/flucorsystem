@@ -21,7 +21,7 @@ export default function LoginPage() {
       const res = await fetch("/api/authenticate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ importante para armazenar cookie JWT
+        credentials: "include",
         body: JSON.stringify({ username: usuario, senha }),
       });
 
@@ -30,6 +30,11 @@ export default function LoginPage() {
       if (!res.ok) {
         throw new Error(data.error || "Falha no login.");
       }
+
+      // ✅ Salva role e permissoes no localStorage
+      localStorage.setItem("role", data.usuario.role);
+      localStorage.setItem("permissoes", JSON.stringify(data.usuario.permissoes));
+      localStorage.setItem("token", data.token || ""); // se estiver usando token também
 
       toast({
         title: "Login realizado com sucesso!",

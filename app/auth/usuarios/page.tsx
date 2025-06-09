@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,17 +32,31 @@ export default function UsuariosPage() {
   const [carregando, setCarregando] = useState(false);
   const [modoEdicao, setModoEdicao] = useState<number | null>(null);
 
+  const router = useRouter();
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchUsuarios = async () => {
-    const res = await fetch("/api/usuarios", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setUsuarios(data.usuarios);
+    try {
+      const res = await fetch("/api/usuarios", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Falha ao buscar usuários.");
+
+      const data = await res.json();
+      setUsuarios(data.usuarios);
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message });
+    }
   };
 
   useEffect(() => {
+    const role = localStorage.getItem("role");
+    if (role?.toUpperCase() !== "SYSADMIN") {
+      router.push("/dashboard");
+      return;
+    }
+
     fetchUsuarios();
   }, []);
 
@@ -71,7 +86,7 @@ export default function UsuariosPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro");
+      if (!res.ok) throw new Error(data.error || "Erro ao cadastrar usuário.");
 
       toast({ title: "Usuário criado!" });
       setUsername("");
@@ -148,6 +163,12 @@ export default function UsuariosPage() {
 
   return (
     <div className="flex flex-col items-center gap-8 py-8">
+      <div className="w-full max-w-md">
+        <Button variant="outline" onClick={() => router.push("/dashboard")}>
+          ← Voltar
+        </Button>
+      </div>
+
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center">

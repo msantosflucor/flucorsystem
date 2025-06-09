@@ -46,7 +46,10 @@ export async function POST(request: Request): Promise<Response> {
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "8h" });
 
-    const response = NextResponse.json({ usuario: payload });
+    const response = NextResponse.json({
+      usuario: payload,
+      token, // ✅ token agora é retornado para uso no frontend
+    });
 
     response.headers.set(
       "Set-Cookie",

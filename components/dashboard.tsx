@@ -21,7 +21,9 @@ import {
   History,
   Settings,
   MapPin,
+  LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import BoxesStatus from "@/components/boxes-status";
 import TruckRegistration from "@/components/truck-registration";
 import LaboratoryAnalysis from "@/components/laboratory-analysis";
@@ -36,14 +38,21 @@ import ParkingDashboard from "@/components/parking-dashboard";
 
 export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const { toast } = useToast();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [currentUnitColor, setCurrentUnitColor] = useState(unitColor);
-
   const [caminhoes, setCaminhoes] = useState([]);
   const [analisesHoje, setAnalisesHoje] = useState([]);
   const [caixas, setCaixas] = useState([]);
+  const [permissoes, setPermissoes] = useState<string[]>([]);
 
   useEffect(() => {
+    const storedPermissoes =
+      typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("permissoes") || "[]")
+        : [];
+    setPermissoes(storedPermissoes);
+
     const fetchData = async () => {
       try {
         const [res1, res2, res3] = await Promise.all([
@@ -83,6 +92,18 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
       title: "Unidade alterada",
       description: "Você alterou para uma nova unidade.",
     });
+  };
+
+  const handleLogout = () => {
+    // Remove o cookie de autenticação
+    document.cookie = "token=; path=/; max-age=0";
+
+    // Remove dados do localStorage
+    localStorage.removeItem("permissoes");
+    localStorage.removeItem("role");
+
+    // Redireciona para login
+    router.push("/login");
   };
 
   const caminhoesAguardando = caminhoes.filter(
@@ -136,6 +157,24 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
           >
             Exportar Relatório
           </Button>
+          {typeof window !== "undefined" &&
+            localStorage.getItem("role")?.toLowerCase() === "sysadmin" && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => (window.location.href = "/auth/usuarios")}
+              >
+                Cadastrar Usuário
+              </Button>
+            )}
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
         </div>
       </header>
 
@@ -146,147 +185,175 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         className="space-y-4"
       >
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="dashboard">
-            <Clock className="h-5 w-5" />
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="truck">
-            <Truck className="h-5 w-5" />
-            Registro de Caminhão
-          </TabsTrigger>
-          <TabsTrigger value="laboratory">
-            <FlaskConical className="h-5 w-5" />
-            Análise Laboratorial
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            <History className="h-5 w-5" />
-            Histórico
-          </TabsTrigger>
-          <TabsTrigger value="lines">
-            <Settings className="h-5 w-5" />
-            Gerenciar Linhas
-          </TabsTrigger>
-          <TabsTrigger value="parking">
-            <MapPin className="h-5 w-5" />
-            Estacionamento
-          </TabsTrigger>
+          {permissoes.includes("DASHBOARD") && (
+            <TabsTrigger value="dashboard">
+              <Clock className="h-5 w-5" />
+              Dashboard
+            </TabsTrigger>
+          )}
+          {permissoes.includes("CAMINHAO") && (
+            <TabsTrigger value="truck">
+              <Truck className="h-5 w-5" />
+              Registro de Caminhão
+            </TabsTrigger>
+          )}
+          {permissoes.includes("LABORATORIO") && (
+            <TabsTrigger value="laboratory">
+              <FlaskConical className="h-5 w-5" />
+              Análise Laboratorial
+            </TabsTrigger>
+          )}
+          {permissoes.includes("HISTORICO") && (
+            <TabsTrigger value="history">
+              <History className="h-5 w-5" />
+              Histórico
+            </TabsTrigger>
+          )}
+          {permissoes.includes("LINHAS") && (
+            <TabsTrigger value="lines">
+              <Settings className="h-5 w-5" />
+              Gerenciar Linhas
+            </TabsTrigger>
+          )}
+          {permissoes.includes("ESTACIONAMENTO") && (
+            <TabsTrigger value="parking">
+              <MapPin className="h-5 w-5" />
+              Estacionamento
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Caminhões Aguardando
-                </CardTitle>
-                <Truck className="h-5 w-5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {caminhoesAguardando.length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {
-                    caminhoesAguardando.filter(
-                      (c) => c.status === "in_progress"
-                    ).length
-                  }{" "}
-                  em análise,{" "}
-                  {
-                    caminhoesAguardando.filter(
-                      (c) => !c.status || c.status === "waiting"
-                    ).length
-                  }{" "}
-                  aguardando
-                </p>
-              </CardContent>
-            </Card>
+        {permissoes.includes("DASHBOARD") && (
+          <TabsContent value="dashboard" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Caminhões Aguardando
+                  </CardTitle>
+                  <Truck className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {caminhoesAguardando.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {
+                      caminhoesAguardando.filter(
+                        (c) => c.status === "in_progress"
+                      ).length
+                    }{" "}
+                    em análise,{" "}
+                    {
+                      caminhoesAguardando.filter(
+                        (c) => !c.status || c.status === "waiting"
+                      ).length
+                    }{" "}
+                    aguardando
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Tempo Médio de Espera
-                </CardTitle>
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mediaEspera} min</div>
-                <p className="text-xs text-muted-foreground">
-                  baseado nos registros
-                </p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Tempo Médio de Espera
+                  </CardTitle>
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{mediaEspera} min</div>
+                  <p className="text-xs text-muted-foreground">
+                    baseado nos registros
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Caixas Disponíveis
-                </CardTitle>
-                <svg
-                  className="h-5 w-5 text-muted-foreground"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <rect width="7" height="7" x="3" y="3" rx="1" />
-                  <rect width="7" height="7" x="14" y="3" rx="1" />
-                  <rect width="7" height="7" x="14" y="14" rx="1" />
-                  <rect width="7" height="7" x="3" y="14" rx="1" />
-                </svg>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {caixasLivres}/{totalCaixas}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  atualizando automaticamente
-                </p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Caixas Disponíveis
+                  </CardTitle>
+                  <svg
+                    className="h-5 w-5 text-muted-foreground"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect width="7" height="7" x="3" y="3" rx="1" />
+                    <rect width="7" height="7" x="14" y="3" rx="1" />
+                    <rect width="7" height="7" x="14" y="14" rx="1" />
+                    <rect width="7" height="7" x="3" y="14" rx="1" />
+                  </svg>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {caixasLivres}/{totalCaixas}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    atualizando automaticamente
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Análises Hoje
-                </CardTitle>
-                <FlaskConical className="h-5 w-5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analisesHojeTotal.length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {analisesLiberadas} liberadas, {analisesRecusadas} recusadas
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <BoxesStatus caixas={caixas} />
+              <Card>
+                <CardHeader className="flex justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Análises Hoje
+                  </CardTitle>
+                  <FlaskConical className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {analisesHojeTotal.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {analisesLiberadas} liberadas, {analisesRecusadas} recusadas
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            <div className="space-y-4">
-              <PendingSamplesList />
-            </div>
-          </div>
-        </TabsContent>
 
-        <TabsContent value="truck">
-          <TruckRegistration />
-        </TabsContent>
-        <TabsContent value="laboratory">
-          <LaboratoryAnalysis />
-        </TabsContent>
-        <TabsContent value="history">
-          <HistoryLog />
-        </TabsContent>
-        <TabsContent value="lines">
-          <LineManagement />
-        </TabsContent>
-        <TabsContent value="parking">
-          <ParkingDashboard />
-        </TabsContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <BoxesStatus caixas={caixas} />
+              </div>
+              <div className="space-y-4">
+                <PendingSamplesList />
+              </div>
+            </div>
+          </TabsContent>
+        )}
+
+        {permissoes.includes("CAMINHAO") && (
+          <TabsContent value="truck">
+            <TruckRegistration />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("LABORATORIO") && (
+          <TabsContent value="laboratory">
+            <LaboratoryAnalysis />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("HISTORICO") && (
+          <TabsContent value="history">
+            <HistoryLog />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("LINHAS") && (
+          <TabsContent value="lines">
+            <LineManagement />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("ESTACIONAMENTO") && (
+          <TabsContent value="parking">
+            <ParkingDashboard />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

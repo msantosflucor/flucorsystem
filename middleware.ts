@@ -44,8 +44,15 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload }: any = await jwtVerify(token, getSecretKey());
 
+    // 🔐 Proteção exclusiva para /auth/usuarios (somente SYSADMIN)
+    if (pathname.startsWith("/auth/usuarios") && payload.role !== "SYSADMIN") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // ✅ SYSADMIN pode tudo
     if (payload.role === "SYSADMIN") return NextResponse.next();
 
+    // 🔐 Verifica permissões baseadas no mapeamento de rota para módulo
     const rotaProtegida = Object.keys(rotaParaModulo).find((rota) =>
       pathname.startsWith(rota)
     );
