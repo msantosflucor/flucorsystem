@@ -5,29 +5,25 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
   request: NextRequest,
-  context: { params?: { id?: string } }
+  context: any
 ) {
-  const id = context.params?.id;
-
-  if (!id || isNaN(Number(id))) {
-    return NextResponse.json(
-      { error: "ID da caixa inválido." },
-      { status: 400 }
-    );
-  }
-
-  const caixaId = Number(id);
-
   try {
+    const id = context?.params?.id;
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { error: "ID da caixa inválido." },
+        { status: 400 }
+      );
+    }
+
+    const caixaId = Number(id);
     const { confirmar } = await request.json().catch(() => ({ confirmar: null }));
 
-    // ✅ Finaliza o caminhão atual vinculado à caixa
     const caminhaoAtual = await prisma.caminhao.findFirst({
       where: { caixaId },
     });
 
     if (caminhaoAtual) {
-      // Atualiza status e remove da caixa
       await prisma.caminhao.update({
         where: { id: caminhaoAtual.id },
         data: {
@@ -36,13 +32,11 @@ export async function PATCH(
         },
       });
 
-      // ⚠ Verifica se já existe análise registrada para esse caminhão
       const analiseExistente = await prisma.analise.findFirst({
         where: { caminhaoId: caminhaoAtual.id },
       });
 
       if (analiseExistente) {
-        // ✅ Atualiza para finalizado (mantendo tanque e observações existentes ou padrão)
         await prisma.analise.update({
           where: { id: analiseExistente.id },
           data: {
@@ -52,7 +46,6 @@ export async function PATCH(
           },
         });
       } else {
-        // ✅ Cria nova entrada no histórico
         await prisma.analise.create({
           data: {
             caminhaoId: caminhaoAtual.id,
@@ -64,7 +57,6 @@ export async function PATCH(
       }
     }
 
-    // 🔁 Busca próximo caminhão com destino à caixa (inclui liberado)
     const proximo = await prisma.caminhao.findFirst({
       where: {
         destinoCaixaId: caixaId,
@@ -121,7 +113,6 @@ export async function PATCH(
       });
     }
 
-    // Nenhum próximo caminhão → liberar a caixa
     await prisma.caixa.update({
       where: { id: caixaId },
       data: { status: "livre" },

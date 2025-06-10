@@ -1,24 +1,30 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
-export async function PATCH(req: Request, { params }: Params) {
-  const caminhaoId = Number(params.id);
-  const { caixaId } = await req.json();
-
-  if (!caminhaoId || !caixaId) {
-    return NextResponse.json(
-      { error: "Parâmetros caminhaoId e caixaId são obrigatórios." },
-      { status: 400 }
-    );
-  }
-
+// PATCH: Encaminhar caminhão manualmente para uma caixa
+export async function PATCH(
+  req: NextRequest,
+  context: any
+) {
   try {
+    const id = context?.params?.id;
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { error: "ID do caminhão inválido." },
+        { status: 400 }
+      );
+    }
+
+    const caminhaoId = Number(id);
+    const { caixaId } = await req.json();
+
+    if (!caixaId) {
+      return NextResponse.json(
+        { error: "caixaId é obrigatório." },
+        { status: 400 }
+      );
+    }
+
     const caixa = await prisma.caixa.findUnique({
       where: { id: caixaId },
     });
@@ -58,9 +64,7 @@ export async function PATCH(req: Request, { params }: Params) {
       }),
       prisma.caixa.update({
         where: { id: caixaId },
-        data: {
-          status: "ocupada",
-        },
+        data: { status: "ocupada" },
       }),
     ]);
 

@@ -7,9 +7,89 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//////////////////////////
-// ENUMS EXISTENTES
-//////////////////////////
+model Unidade {
+  id       Int      @id @default(autoincrement())
+  nome     String
+  corHex   String
+  criadoEm DateTime @default(now())
+}
+
+model Caminhao {
+  id             Int            @id @default(autoincrement())
+  placa          String
+  caixaId        Int?
+  criadoEm       DateTime       @default(now())
+  status         StatusCaminhao
+  tipo           TipoResiduo?
+  destinoCaixaId Int?
+  motorista      String
+  transportadora String
+  horaColeta     DateTime?
+  analises       Analise[]
+  caixa          Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
+  destinoCaixa   Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
+
+  @@index([caixaId], map: "Caminhao_caixaId_fkey")
+  @@index([destinoCaixaId], map: "Caminhao_destinoCaixaId_fkey")
+}
+
+model Analise {
+  id          Int            @id @default(autoincrement())
+  caminhaoId  Int
+  status      StatusCaminhao
+  tanque      String
+  observacoes String
+  criadoEm    DateTime       @default(now())
+  caminhao    Caminhao       @relation(fields: [caminhaoId], references: [id])
+
+  @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
+}
+
+model Caixa {
+  id          Int         @id @default(autoincrement())
+  nome        String      @unique
+  status      StatusCaixa
+  tipoResiduo TipoResiduo
+  linhaId     Int?
+  criadoEm    DateTime    @default(now())
+  linha       Linha?      @relation(fields: [linhaId], references: [id])
+  caminhoes   Caminhao[]  @relation("CaixaAtual")
+  destinoPara Caminhao[]  @relation("CaixaDestino")
+
+  @@index([linhaId], map: "Caixa_linhaId_fkey")
+}
+
+model Linha {
+  id               Int         @id @default(autoincrement())
+  nome             String      @unique
+  tipo             TipoResiduo
+  status           StatusLinha
+  motivoManutencao String?
+  tempoMedio       Int
+  eficiencia       Int
+  cargaAtual       Int
+  ultimaManutencao DateTime
+  criadoEm         DateTime    @default(now())
+  caixas           Caixa[]
+}
+
+model Usuario {
+  id         Int         @id @default(autoincrement())
+  username   String      @unique
+  senhaHash  String
+  role       Role        @default(PADRAO)
+  criadoEm   DateTime    @default(now())
+  permissoes Permissao[]
+}
+
+model Permissao {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int
+  modulo    Modulo
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId], map: "Permissao_usuarioId_fkey")
+}
 
 enum StatusLinha {
   active
@@ -22,12 +102,12 @@ enum StatusCaixa {
 }
 
 enum StatusCaminhao {
-  waiting         // ✅ Aguardando na caixa
-  in_progress     // ✅ No pátio ou em análise (não ocupa caixa)
-  approved        // 🔍 Resultado da análise: Liberado (não manda pro histórico)
-  incompatible    // 🔍 Resultado da análise: Incompatível
-  rejected        // 🔍 Resultado da análise: Recusado
-  finalizado      // ✅ Caminhão encerrado, vai pro histórico
+  waiting
+  in_progress
+  approved
+  incompatible
+  rejected
+  finalizado
 }
 
 enum TipoResiduo {
@@ -37,10 +117,6 @@ enum TipoResiduo {
   Acidos
   Lodo
 }
-
-//////////////////////////
-// NOVOS ENUMS (LOGIN)
-//////////////////////////
 
 enum Role {
   SYSADMIN
@@ -54,113 +130,5 @@ enum Modulo {
   ESTACIONAMENTO
   LINHAS
   CAIXAS
-  CAMINHAO // ✅ Adicionado
-}
-
-//////////////////////////
-// TABELA DE UNIDADES
-//////////////////////////
-
-model Unidade {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  corHex    String
-  criadoEm  DateTime @default(now())
-}
-
-//////////////////////////
-// TABELA DE CAMINHÕES
-//////////////////////////
-
-model Caminhao {
-  id              Int               @id @default(autoincrement())
-  placa           String
-  origem          String?
-  caixaId         Int?              // 🔄 Agora é opcional
-  destinoCaixaId  Int?              // ✅ Campo adicionado
-  aguardarNaCaixa Boolean
-  criadoEm        DateTime          @default(now())
-  horaColeta      DateTime?         // ✅ NOVO CAMPO - Data/hora da coleta
-  status          StatusCaminhao    @default(waiting)
-  tipo            TipoResiduo       @default(Diversos)
-
-  caixa           Caixa?            @relation("CaixaAtual", fields: [caixaId], references: [id])
-  destinoCaixa    Caixa?            @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
-  analises        Analise[]
-}
-
-//////////////////////////
-// TABELA DE ANÁLISES
-//////////////////////////
-
-model Analise {
-  id            Int             @id @default(autoincrement())
-  caminhaoId    Int
-  status        StatusCaminhao  // 🔥 Representa apenas o resultado da análise
-  tanque        String
-  observacoes   String
-  criadoEm      DateTime        @default(now())
-
-  caminhao      Caminhao        @relation(fields: [caminhaoId], references: [id])
-}
-
-//////////////////////////
-// TABELA DE CAIXAS
-//////////////////////////
-
-model Caixa {
-  id          Int          @id @default(autoincrement())
-  nome        String       @unique
-  status      StatusCaixa
-  tipoResiduo TipoResiduo
-  linhaId     Int?
-  criadoEm    DateTime     @default(now())
-
-  linha       Linha?       @relation(fields: [linhaId], references: [id])
-  caminhoes   Caminhao[]   @relation("CaixaAtual")
-  destinoPara Caminhao[]   @relation("CaixaDestino")
-}
-
-//////////////////////////
-// TABELA DE LINHAS
-//////////////////////////
-
-model Linha {
-  id                Int          @id @default(autoincrement())
-  nome              String       @unique
-  tipo              TipoResiduo
-  status            StatusLinha
-  motivoManutencao  String?
-  tempoMedio        Int
-  eficiencia        Int
-  cargaAtual        Int
-  ultimaManutencao  DateTime
-  criadoEm          DateTime     @default(now())
-
-  caixas            Caixa[]
-}
-
-//////////////////////////
-// TABELA DE USUÁRIOS
-//////////////////////////
-
-model Usuario {
-  id          Int         @id @default(autoincrement())
-  username    String      @unique
-  senhaHash   String
-  role        Role        @default(PADRAO)
-  permissoes  Permissao[]
-  criadoEm    DateTime    @default(now())
-}
-
-//////////////////////////
-// TABELA DE PERMISSÕES
-//////////////////////////
-
-model Permissao {
-  id         Int      @id @default(autoincrement())
-  usuarioId  Int
-  modulo     Modulo
-
-  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  CAMINHAO
 }

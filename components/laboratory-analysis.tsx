@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 import {
-  Card, CardContent, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card";
-import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Card, CardContent, CardHeader, CardTitle, CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import {
   Clock, FlaskConical, AlertTriangle, CheckCircle2, Info,
 } from "lucide-react";
@@ -46,29 +46,25 @@ export default function LaboratoryAnalysis() {
     return Math.floor(diff / 60000);
   };
 
+  const sample = caminhoes.find((c) => c.id === selectedId);
+
   const handleSelecionar = (id: number) => {
-    const selected = caminhoes.find(c => c.id === id);
-    if (!selected?.horaColeta) {
-      alert("⚠️ A coleta precisa ser registrada antes da análise.");
-      return;
-    }
     setSelectedId(id);
     setActiveTab("analysis");
+    const selected = caminhoes.find(c => c.id === id);
     setStatus(selected?.status || "");
     setTanque("");
     setObservacoes("");
   };
 
-  const openDetailsDialog = (id: number) => {
-    setSelectedId(id);
-    setDetailsDialogOpen(true);
-  };
-
   const coletarAmostra = async (id: number) => {
     const confirmar = window.confirm("Confirmar coleta?");
     if (!confirmar) return;
+
     try {
-      const res = await fetch(`/api/caminhoes/${id}/coletar`, { method: "PATCH" });
+      const res = await fetch(`/api/caminhoes/${id}/coletar`, {
+        method: "PATCH",
+      });
       if (!res.ok) throw new Error("Erro ao registrar coleta");
       await fetchCaminhoes();
     } catch (err) {
@@ -77,27 +73,35 @@ export default function LaboratoryAnalysis() {
     }
   };
 
-  const sample = caminhoes.find((c) => c.id === selectedId);
-
   const handleSubmit = async () => {
     if (!selectedId || !status || !tanque) {
       alert("Preencha todos os campos obrigatórios.");
       return;
     }
+
     if ((status === "incompatible" || status === "rejected") && !observacoes) {
       alert("Observações obrigatórias para incompatíveis ou recusados.");
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const res = await fetch("/api/analises", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caminhaoId: selectedId, status, tanque, observacoes }),
+        body: JSON.stringify({
+          caminhaoId: selectedId,
+          status,
+          tanque,
+          observacoes,
+        }),
       });
+
       if (!res.ok) throw new Error("Falha ao salvar");
+
       await fetchCaminhoes();
+
       setSelectedId(null);
       setStatus("");
       setTanque("");
@@ -141,70 +145,35 @@ export default function LaboratoryAnalysis() {
       </TabsList>
 
       <TabsContent value="pending">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              Registros de Caminhões
-              <Badge>{caminhoes.filter(c => c.status !== "finalizado").length} registros</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left py-2 px-4">ID</th>
-                    <th className="text-left py-2 px-4">Placa</th>
-                    <th className="text-left py-2 px-4">Origem</th>
-                    <th className="text-left py-2 px-4">Caixa</th>
-                    <th className="text-left py-2 px-4">Tempo</th>
-                    <th className="text-left py-2 px-4">Status</th>
-                    <th className="text-left py-2 px-4">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {caminhoes
-                    .filter((c) => c.status !== "finalizado")
-                    .map((c) => (
-                      <tr key={c.id} className="border-t hover:bg-muted/50">
-                        <td className="py-2 px-4 font-mono">{c.id}</td>
-                        <td className="py-2 px-4">{c.placa}</td>
-                        <td className="py-2 px-4">{c.origem}</td>
-                        <td className="py-2 px-4">{c.caixa?.nome || "N/A"}</td>
-                        <td className="py-2 px-4 flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          {getTimeElapsed(c.criadoEm)} min
-                        </td>
-                        <td className="py-2 px-4">
-                          <Badge variant="outline" className={statusColor(c.status)}>
-                            {statusLabel(c.status)}
-                          </Badge>
-                        </td>
-                        <td className="py-2 px-4 flex gap-2">
-                          {!c.horaColeta && (
-                            <Button variant="outline" onClick={() => coletarAmostra(c.id)}>
-                              Coletar
-                            </Button>
-                          )}
-                          <Button size="sm" onClick={() => handleSelecionar(c.id)}>Analisar</Button>
-                          <Button size="icon" variant="outline" onClick={() => openDetailsDialog(c.id)}>
-                            <Info className="w-4 h-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  {caminhoes.filter((c) => c.status !== "finalizado").length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                        Nenhum registro encontrado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {caminhoes.filter(c => c.status !== "finalizado").map(c => (
+            <Card key={c.id}>
+              <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                  <span>Placa: {c.placa}</span>
+                  <Badge className={statusColor(c.status)}>{statusLabel(c.status)}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-1">
+                <div><strong>Transportadora:</strong> {c.transportadora}</div>
+                <div><strong>Caixa:</strong> {c.caixa?.nome || "N/A"}</div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>{getTimeElapsed(c.criadoEm)} min</span>
+                </div>
+              </CardContent>
+              <CardFooter className="flex gap-2">
+                {!c.horaColeta ? (
+                  <Button variant="outline" onClick={() => coletarAmostra(c.id)}>
+                    Coletar
+                  </Button>
+                ) : (
+                  <Button onClick={() => handleSelecionar(c.id)}>Analisar</Button>
+                )}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       </TabsContent>
 
       <TabsContent value="analysis">
@@ -212,7 +181,8 @@ export default function LaboratoryAnalysis() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FlaskConical className="h-5 w-5" /> Registrar Análise Laboratorial
+                <FlaskConical className="h-5 w-5" />
+                Registrar Análise Laboratorial
               </CardTitle>
             </CardHeader>
 
@@ -220,10 +190,12 @@ export default function LaboratoryAnalysis() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><strong>ID do Registro:</strong> {sample.id}</div>
                 <div><strong>Placa:</strong> {sample.placa}</div>
-                <div><strong>Origem:</strong> {sample.origem}</div>
+                <div><strong>Transportadora:</strong> {sample.transportadora}</div>
                 <div><strong>Caixa:</strong> {sample.caixa?.nome || "N/A"}</div>
-                <div><strong>Hora da entrada:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
-                <div><strong>Hora da coleta:</strong> {sample.horaColeta ? new Date(sample.horaColeta).toLocaleString("pt-BR") : "N/A"}</div>
+                <div><strong>Hora de entrada do caminhão:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
+                {sample.horaColeta && (
+                  <div><strong>Hora da coleta:</strong> {new Date(sample.horaColeta).toLocaleString("pt-BR")}</div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -280,15 +252,20 @@ export default function LaboratoryAnalysis() {
           <DialogHeader>
             <DialogTitle>Detalhes do Registro</DialogTitle>
           </DialogHeader>
+
           {sample && (
-            <div className="space-y-4">
+            <div className="space-y-4 text-sm">
               <div><strong>ID:</strong> {sample.id}</div>
               <div><strong>Placa:</strong> {sample.placa}</div>
-              <div><strong>Origem:</strong> {sample.origem}</div>
+              <div><strong>Transportadora:</strong> {sample.transportadora}</div>
               <div><strong>Caixa:</strong> {sample.caixa?.nome || "N/A"}</div>
-              <div><strong>Data:</strong> {new Date(sample.criadoEm).toLocaleString()}</div>
+              <div><strong>Hora de entrada do caminhão:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
+              {sample.horaColeta && (
+                <div><strong>Hora da coleta:</strong> {new Date(sample.horaColeta).toLocaleString("pt-BR")}</div>
+              )}
             </div>
           )}
+
           <div className="flex justify-end mt-4">
             <DialogClose asChild>
               <Button>Fechar</Button>

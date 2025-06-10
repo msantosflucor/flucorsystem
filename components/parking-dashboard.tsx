@@ -11,7 +11,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -38,9 +37,7 @@ export default function ParkingDashboard() {
         const response = await fetch("/api/caminhoes");
         const data = await response.json();
         const filteredToPatio = data.filter((item: any) =>
-          item.aguardarNaCaixa === false &&
-          item.caixaId === null &&
-          item.status !== "finalizado"
+          item.caixaId === null && item.status !== "finalizado"
         );
         const mappedData = filteredToPatio.map((item: any) => ({
           id: item.id,
@@ -204,7 +201,7 @@ export default function ParkingDashboard() {
           <CardTitle className="flex items-center justify-between">
             <span>Pátio de Caminhões</span>
             <Badge variant="outline" className="font-normal">
-              {trucksData.length} caminhões
+              {filteredTrucks.length} caminhões
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -260,7 +257,6 @@ export default function ParkingDashboard() {
 
           {selectedTruck && (
             <div className="space-y-4 py-2">
-              {/* Informações do caminhão */}
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-lg">{selectedTruck.plate}</h3>
                 <div className="flex gap-2 items-center">
@@ -288,7 +284,6 @@ export default function ParkingDashboard() {
                 </div>
               </div>
 
-              {/* Select de caixas */}
               <div>
                 <div className="text-sm text-gray-500 mb-1">Caixa Disponível</div>
                 <Select onValueChange={setCaixaSelecionada}>
