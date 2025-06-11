@@ -9,18 +9,21 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Clock, FlaskConical, AlertTriangle, CheckCircle2, Info,
+  Clock, FlaskConical, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 
 export default function LaboratoryAnalysis() {
   const [caminhoes, setCaminhoes] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedDetalhes, setSelectedDetalhes] = useState<any>(null);
   const [status, setStatus] = useState("");
   const [tanque, setTanque] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -29,7 +32,9 @@ export default function LaboratoryAnalysis() {
 
   const fetchCaminhoes = async () => {
     try {
-      const res = await fetch("/api/caminhoes");
+      const res = await fetch("/api/caminhoes", {
+        credentials: "include",
+      });
       const data = await res.json();
       setCaminhoes(data);
     } catch (err) {
@@ -50,11 +55,17 @@ export default function LaboratoryAnalysis() {
 
   const handleSelecionar = (id: number) => {
     setSelectedId(id);
-    setActiveTab("analysis");
     const selected = caminhoes.find(c => c.id === id);
     setStatus(selected?.status || "");
     setTanque("");
     setObservacoes("");
+    setActiveTab("analysis");
+  };
+
+  const openDetalhesDialog = (caminhao: any) => {
+    const ultimaAnalise = caminhao.analises?.[0] || null;
+    setSelectedDetalhes({ ...caminhao, ultimaAnalise });
+    setDetailsDialogOpen(true);
   };
 
   const coletarAmostra = async (id: number) => {
@@ -64,6 +75,7 @@ export default function LaboratoryAnalysis() {
     try {
       const res = await fetch(`/api/caminhoes/${id}/coletar`, {
         method: "PATCH",
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Erro ao registrar coleta");
       await fetchCaminhoes();
@@ -89,6 +101,7 @@ export default function LaboratoryAnalysis() {
     try {
       const res = await fetch("/api/analises", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           caminhaoId: selectedId,
@@ -101,7 +114,6 @@ export default function LaboratoryAnalysis() {
       if (!res.ok) throw new Error("Falha ao salvar");
 
       await fetchCaminhoes();
-
       setSelectedId(null);
       setStatus("");
       setTanque("");
@@ -156,17 +168,18 @@ export default function LaboratoryAnalysis() {
               </CardHeader>
               <CardContent className="text-sm space-y-1">
                 <div><strong>Transportadora:</strong> {c.transportadora}</div>
-                <div><strong>Caixa:</strong> {c.caixa?.nome || "N/A"}</div>
+                <div>
+                  <strong>Caixa:</strong> {c.caixa ? `${c.caixa.nome} - ${c.caixa.tipoResiduo}` : "N/A"}
+                </div>
                 <div className="flex items-center gap-1">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span>{getTimeElapsed(c.criadoEm)} min</span>
                 </div>
               </CardContent>
-              <CardFooter className="flex gap-2">
+              <CardFooter className="flex gap-2 flex-wrap">
+                <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>Detalhes</Button>
                 {!c.horaColeta ? (
-                  <Button variant="outline" onClick={() => coletarAmostra(c.id)}>
-                    Coletar
-                  </Button>
+                  <Button variant="outline" onClick={() => coletarAmostra(c.id)}>Coletar</Button>
                 ) : (
                   <Button onClick={() => handleSelecionar(c.id)}>Analisar</Button>
                 )}
@@ -191,7 +204,9 @@ export default function LaboratoryAnalysis() {
                 <div><strong>ID do Registro:</strong> {sample.id}</div>
                 <div><strong>Placa:</strong> {sample.placa}</div>
                 <div><strong>Transportadora:</strong> {sample.transportadora}</div>
-                <div><strong>Caixa:</strong> {sample.caixa?.nome || "N/A"}</div>
+                <div>
+                  <strong>Caixa:</strong> {sample.caixa ? `${sample.caixa.nome} - ${sample.caixa.tipoResiduo}` : "N/A"}
+                </div>
                 <div><strong>Hora de entrada do caminhão:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
                 {sample.horaColeta && (
                   <div><strong>Hora da coleta:</strong> {new Date(sample.horaColeta).toLocaleString("pt-BR")}</div>
@@ -253,16 +268,26 @@ export default function LaboratoryAnalysis() {
             <DialogTitle>Detalhes do Registro</DialogTitle>
           </DialogHeader>
 
-          {sample && (
-            <div className="space-y-4 text-sm">
-              <div><strong>ID:</strong> {sample.id}</div>
-              <div><strong>Placa:</strong> {sample.placa}</div>
-              <div><strong>Transportadora:</strong> {sample.transportadora}</div>
-              <div><strong>Caixa:</strong> {sample.caixa?.nome || "N/A"}</div>
-              <div><strong>Hora de entrada do caminhão:</strong> {new Date(sample.criadoEm).toLocaleString("pt-BR")}</div>
-              {sample.horaColeta && (
-                <div><strong>Hora da coleta:</strong> {new Date(sample.horaColeta).toLocaleString("pt-BR")}</div>
-              )}
+          {selectedDetalhes && (
+            <div className="space-y-2 text-sm">
+              <div><strong>Placa:</strong> {selectedDetalhes.placa}</div>
+              <div><strong>Transportadora:</strong> {selectedDetalhes.transportadora}</div>
+              <div>
+                <strong>Caixa:</strong>{" "}
+                {selectedDetalhes.caixa
+                  ? `${selectedDetalhes.caixa.nome} - ${selectedDetalhes.caixa.tipoResiduo}`
+                  : "N/A"}
+              </div>
+              <div><strong>Hora de entrada:</strong> {new Date(selectedDetalhes.criadoEm).toLocaleString("pt-BR")}</div>
+              <div>
+                <strong>Hora da coleta:</strong>{" "}
+                {selectedDetalhes.horaColeta
+                  ? new Date(selectedDetalhes.horaColeta).toLocaleString("pt-BR")
+                  : "Aguardando coleta"}
+              </div>
+              <div><strong>Status:</strong> {statusLabel(selectedDetalhes.status)}</div>
+              <div><strong>Tanque:</strong> {selectedDetalhes.ultimaAnalise?.tanque || "—"}</div>
+              <div><strong>Observações:</strong> {selectedDetalhes.ultimaAnalise?.observacoes || "—"}</div>
             </div>
           )}
 

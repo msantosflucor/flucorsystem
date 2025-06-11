@@ -1,45 +1,40 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-// PATCH: Encaminhar caminhão manualmente para uma caixa
+// PATCH → Encaminhar caminhão para uma caixa
 export async function PATCH(
   req: NextRequest,
-  context: any
+  { params }: { params: { id: string } }
 ) {
-  try {
-    const id = context?.params?.id;
-    if (!id || isNaN(Number(id))) {
-      return NextResponse.json(
-        { error: "ID do caminhão inválido." },
-        { status: 400 }
-      );
-    }
+  const caminhaoId = parseInt(params.id);
 
-    const caminhaoId = Number(id);
+  if (isNaN(caminhaoId)) {
+    return NextResponse.json(
+      { error: "ID do caminhão inválido." },
+      { status: 400 }
+    );
+  }
+
+  try {
     const { caixaId } = await req.json();
 
-    if (!caixaId) {
+    if (!caixaId || isNaN(parseInt(caixaId))) {
       return NextResponse.json(
-        { error: "caixaId é obrigatório." },
+        { error: "ID da caixa inválido ou ausente." },
         { status: 400 }
       );
     }
 
     const caixa = await prisma.caixa.findUnique({
-      where: { id: caixaId },
+      where: { id: parseInt(caixaId) },
     });
 
     if (!caixa) {
       return NextResponse.json(
         { error: "Caixa não encontrada." },
         { status: 404 }
-      );
-    }
-
-    if (caixa.status !== "livre") {
-      return NextResponse.json(
-        { error: "A caixa selecionada está ocupada." },
-        { status: 409 }
       );
     }
 
@@ -54,25 +49,21 @@ export async function PATCH(
       );
     }
 
-    await prisma.$transaction([
-      prisma.caminhao.update({
-        where: { id: caminhaoId },
-        data: {
-          caixaId,
-          ...(caminhao.status === "in_progress" && { status: "waiting" }),
-        },
-      }),
-      prisma.caixa.update({
-        where: { id: caixaId },
-        data: { status: "ocupada" },
-      }),
-    ]);
+    // Encaminha o caminhão para a caixa (sem ocupar ainda)
+    await prisma.caminhao.update({
+      where: { id: caminhaoId },
+      data: {
+        destinoCaixaId: caixa.id,
+      },
+    });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      message: `Caminhão ${caminhao.placa} encaminhado para a caixa ${caixa.nome}.`,
+    });
   } catch (error) {
     console.error("Erro ao encaminhar caminhão:", error);
     return NextResponse.json(
-      { error: "Erro interno ao encaminhar caminhão." },
+      { error: "Erro interno ao encaminhar caminhão para caixa." },
       { status: 500 }
     );
   }

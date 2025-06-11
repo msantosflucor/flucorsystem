@@ -8,36 +8,71 @@ export async function GET() {
       include: { linha: true },
     });
 
-    // Buscar placas dos caminhões ocupando as caixas
-    const caixasComPlaca = await Promise.all(
+    const caixasComCaminhao = await Promise.all(
       caixas.map(async (caixa) => {
         let caminhaoPlaca = null;
+        let caminhaoId = null;
+        let fila: { id: number; placa: string; status: string }[] = [];
 
         if (caixa.status === "ocupada") {
           const caminhao = await prisma.caminhao.findFirst({
             where: {
               caixaId: caixa.id,
-              status: { in: ["waiting", "approved"] },
+              status: {
+                in: ["waiting", "approved", "in_progress"],
+              },
             },
-            select: { placa: true },
+            orderBy: {
+              criadoEm: "desc",
+            },
+            select: {
+              id: true,
+              placa: true,
+            },
           });
 
           caminhaoPlaca = caminhao?.placa || null;
+          caminhaoId = caminhao?.id || null;
         }
+
+        // ✅ Caminhões na fila aguardando essa caixa
+        const filaCaminhoes = await prisma.caminhao.findMany({
+          where: {
+            caixaId: null,
+            destinoCaixaId: caixa.id,
+            status: {
+              not: "finalizado",
+            },
+          },
+          orderBy: {
+            criadoEm: "asc", // primeiro da fila
+          },
+          select: {
+            id: true,
+            placa: true,
+            status: true,
+          },
+        });
+
+        fila = filaCaminhoes;
 
         return {
           id: caixa.id,
           nome: caixa.nome,
           tipoResiduo: caixa.tipoResiduo,
           status: caixa.status,
-          linha: caixa.linha ? { id: caixa.linha.id, nome: caixa.linha.nome } : null,
+          linha: caixa.linha
+            ? { id: caixa.linha.id, nome: caixa.linha.nome }
+            : null,
           caminhaoPlaca,
+          caminhaoId,
+          fila, // ✅ nova propriedade com a fila de caminhões
           criadoEm: caixa.criadoEm,
         };
       })
     );
 
-    return NextResponse.json(caixasComPlaca);
+    return NextResponse.json(caixasComCaminhao);
   } catch (error) {
     console.error("Erro ao buscar caixas:", error);
     return NextResponse.json(

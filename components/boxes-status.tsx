@@ -37,6 +37,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
     try {
       const res = await fetch(`/api/caixas/${caixaId}/liberar`, {
         method: "PATCH",
+        credentials: "include", // ✅ ENVIA O COOKIE
       });
 
       const data = await res.json();
@@ -57,6 +58,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
 
         const segundaResposta = await fetch(`/api/caixas/${caixaId}/liberar`, {
           method: "PATCH",
+          credentials: "include", // ✅ ENVIA O COOKIE TAMBÉM NA CONFIRMAÇÃO
           headers: {
             "Content-Type": "application/json",
           },

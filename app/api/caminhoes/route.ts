@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { StatusCaminhao } from "@prisma/client";
 
-// POST - Cadastrar novo caminhão
+// ✅ POST - Cadastrar novo caminhão
 export async function POST(req: Request) {
   try {
     const { placa, motorista, transportadora } = await req.json();
@@ -34,11 +34,16 @@ export async function POST(req: Request) {
   }
 }
 
-// GET - Listar todos os caminhões
+// ✅ GET - Listar todos os caminhões com caixa e análises incluídas
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
       orderBy: { criadoEm: "desc" },
+      include: {
+        caixa: true,
+        destinoCaixa: true,
+        analises: true, // ✅ Correto: múltiplas análises
+      },
     });
 
     return NextResponse.json(caminhoes);

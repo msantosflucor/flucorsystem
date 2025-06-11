@@ -3,10 +3,7 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function PATCH(
-  request: NextRequest,
-  context: any
-) {
+export async function PATCH(request: NextRequest, context: any) {
   try {
     const id = context?.params?.id;
     if (!id || isNaN(Number(id))) {
@@ -72,7 +69,7 @@ export async function PATCH(
           data: {
             caixaId,
             destinoCaixaId: null,
-            ...(proximo.status === "in_progress" && { status: "waiting" }),
+            // ❌ Não altera status
           },
         });
 
@@ -82,7 +79,7 @@ export async function PATCH(
         });
 
         return NextResponse.json({
-          message: `Caminhão ${proximo.placa} movido automaticamente para a caixa.`,
+          message: `Caminhão ${proximo.placa || proximo.id} movido automaticamente para a caixa.`,
           proximo: null,
         });
       }
@@ -94,7 +91,7 @@ export async function PATCH(
         });
 
         return NextResponse.json({
-          message: `Caixa liberada. Próximo caminhão disponível: ${proximo.placa}`,
+          message: `Caixa liberada. Há caminhão disponível aguardando confirmação.`,
           proximo: {
             id: proximo.id,
             placa: proximo.placa,
@@ -104,7 +101,7 @@ export async function PATCH(
       }
 
       return NextResponse.json({
-        message: `Caminhão finalizado. Há um próximo na fila.`,
+        message: `Caminhão finalizado. Há um próximo disponível para ser puxado.`,
         proximo: {
           id: proximo.id,
           placa: proximo.placa,
@@ -113,13 +110,14 @@ export async function PATCH(
       });
     }
 
+    // Nenhum próximo na fila
     await prisma.caixa.update({
       where: { id: caixaId },
       data: { status: "livre" },
     });
 
     return NextResponse.json({
-      message: `Caminhão finalizado e caixa liberada. Nenhum próximo na fila.`,
+      message: `Caminhão finalizado. Nenhum próximo disponível. Caixa liberada.`,
       proximo: null,
     });
   } catch (error) {

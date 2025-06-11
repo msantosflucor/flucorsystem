@@ -24,12 +24,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔧 Atualizar status do caminhão e manter vínculo com a caixa, se houver
+    // ✅ Criar nova análise vinculada ao caminhão
+    await prisma.analise.create({
+      data: {
+        caminhaoId,
+        status,
+        tanque,
+        observacoes,
+      },
+    });
+
+    // ✅ Atualizar status do caminhão
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
         status,
-        caixaId: caminhao.caixaId ?? null, // Garante que não perca a referência
+        caixaId: caminhao.caixaId ?? null,
       },
     });
 

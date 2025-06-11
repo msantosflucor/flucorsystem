@@ -31,41 +31,45 @@ export default function ParkingDashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
+  const fetchTrucks = async () => {
+    try {
+      const response = await fetch("/api/caminhoes");
+      const data = await response.json();
+
+      const filtered = data.filter((item: any) =>
+        item.status !== "finalizado" && item.caixaId === null
+      );
+
+      const mappedData = filtered.map((item: any) => ({
+        id: item.id,
+        plate: item.placa,
+        origin: item.origem ?? "Não informado",
+        box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
+        destinoCaixaId: item.destinoCaixaId,
+        status: item.status ?? "waiting",
+        type: item.tipo ?? "Diversos",
+        time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
+      }));
+
+      setTrucksData(mappedData);
+    } catch (error) {
+      console.error("Erro ao buscar caminhões:", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchTrucks = async () => {
-      try {
-        const response = await fetch("/api/caminhoes");
-        const data = await response.json();
-        const filteredToPatio = data.filter((item: any) =>
-          item.caixaId === null && item.status !== "finalizado"
-        );
-        const mappedData = filteredToPatio.map((item: any) => ({
-          id: item.id,
-          plate: item.placa,
-          origin: item.origem ?? "Não informado",
-          box: item.caixa?.nome ?? null,
-          status: item.status ?? "waiting",
-          type: item.tipo ?? "Diversos",
-          time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
-        }));
-        setTrucksData(mappedData);
-      } catch (error) {
-        console.error("Erro ao buscar caminhões:", error);
-      }
-    };
     fetchTrucks();
   }, []);
 
   const openDetailsDialog = async (truck: any) => {
     setSelectedTruck(truck);
-    setCaixaSelecionada(null);
+    setCaixaSelecionada(truck.destinoCaixaId ? String(truck.destinoCaixaId) : null);
     setDetailsDialogOpen(true);
 
     try {
       const response = await fetch("/api/caixas");
       const data = await response.json();
-      const livres = data.filter((c: any) => c.status === "livre");
-      setCaixasDisponiveis(livres);
+      setCaixasDisponiveis(data);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
     }
@@ -75,9 +79,10 @@ export default function ParkingDashboard() {
     if (!selectedTruck || !caixaSelecionada) return;
 
     try {
-      const response = await fetch(`/api/caminhoes/${selectedTruck.id}/encaminhar`, {
+      const response = await fetch(`/api/caminhoes/${selectedTruck.id}/mover-para-caixa`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ caixaId: Number(caixaSelecionada) }),
       });
 
@@ -93,14 +98,24 @@ export default function ParkingDashboard() {
       }
 
       toast({
-        title: "Caminhão encaminhado!",
-        description: `Encaminhado para a caixa com sucesso.`,
+        title: "Caminhão na fila!",
+        description: "Caminhão aguardando vaga na caixa selecionada.",
       });
 
       setDetailsDialogOpen(false);
-      setTrucksData(prev => prev.filter((t) => t.id !== selectedTruck.id));
+      fetchTrucks();
     } catch (error) {
-      console.error("Erro ao encaminhar:", error);
+      console.error("Erro ao mover caminhão:", error);
+    }
+  };
+
+  const getMotivoBloqueio = (status: string) => {
+    switch (status) {
+      case "waiting": return "Caminhão aguardando análise.";
+      case "in_progress": return "Caminhão em análise.";
+      case "incompatible": return "Caminhão com amostra incompatível.";
+      case "rejected": return "Caminhão recusado.";
+      default: return "Caminhão não liberado para encaminhamento.";
     }
   };
 
@@ -112,33 +127,23 @@ export default function ParkingDashboard() {
 
   const getTruckBackgroundColor = (status: string) => {
     switch (status) {
-      case "approved":
-        return "bg-gradient-to-br from-green-100 to-green-200 border-green-300";
-      case "in_progress":
-        return "bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300";
-      case "incompatible":
-        return "bg-gradient-to-br from-red-100 to-red-200 border-red-300";
-      case "rejected":
-        return "bg-gradient-to-br from-gray-700 to-gray-800 border-gray-900 text-white";
+      case "approved": return "bg-gradient-to-br from-green-100 to-green-200 border-green-300";
+      case "in_progress": return "bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300";
+      case "incompatible": return "bg-gradient-to-br from-red-100 to-red-200 border-red-300";
+      case "rejected": return "bg-gradient-to-br from-gray-700 to-gray-800 border-gray-900 text-white";
       case "waiting":
-      default:
-        return "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300";
+      default: return "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300";
     }
   };
 
   const getTruckStatusIcon = (status: string) => {
     switch (status) {
-      case "approved":
-        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-      case "in_progress":
-        return <Clock className="h-5 w-5 text-yellow-600" />;
-      case "incompatible":
-        return <AlertTriangle className="h-5 w-5 text-red-600" />;
-      case "rejected":
-        return <AlertTriangle className="h-5 w-5 text-white" />;
+      case "approved": return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case "in_progress": return <Clock className="h-5 w-5 text-yellow-600" />;
+      case "incompatible": return <AlertTriangle className="h-5 w-5 text-red-600" />;
+      case "rejected": return <AlertTriangle className="h-5 w-5 text-white" />;
       case "waiting":
-      default:
-        return <Clock className="h-5 w-5 text-blue-600" />;
+      default: return <Clock className="h-5 w-5 text-blue-600" />;
     }
   };
 
@@ -155,7 +160,6 @@ export default function ParkingDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Filtros e título */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -195,7 +199,6 @@ export default function ParkingDashboard() {
         </div>
       </div>
 
-      {/* Cards de caminhões */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -245,7 +248,6 @@ export default function ParkingDashboard() {
         </CardContent>
       </Card>
 
-      {/* Modal de Detalhes */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -285,8 +287,30 @@ export default function ParkingDashboard() {
               </div>
 
               <div>
-                <div className="text-sm text-gray-500 mb-1">Caixa Disponível</div>
-                <Select onValueChange={setCaixaSelecionada}>
+                <div className="text-sm text-gray-500 mb-1">Caixa direcionada</div>
+                {selectedTruck.destinoCaixaId ? (
+                  <div className="text-sm font-medium mb-2">
+                    Direcionado para a caixa ID {selectedTruck.destinoCaixaId}
+                  </div>
+                ) : (
+                  <div className="text-sm italic text-muted-foreground mb-2">
+                    Sem caixa direcionada
+                  </div>
+                )}
+
+                <Select
+                  value={caixaSelecionada ?? ""}
+                  onValueChange={(novaCaixaId) => {
+                    if (
+                      selectedTruck.destinoCaixaId &&
+                      novaCaixaId !== String(selectedTruck.destinoCaixaId)
+                    ) {
+                      const confirmar = window.confirm("Certeza que deseja mudar a caixa direcionada?");
+                      if (!confirmar) return;
+                    }
+                    setCaixaSelecionada(novaCaixaId);
+                  }}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecione a caixa" />
                   </SelectTrigger>
@@ -294,6 +318,9 @@ export default function ParkingDashboard() {
                     {caixasDisponiveis.map((caixa: any) => (
                       <SelectItem key={caixa.id} value={String(caixa.id)}>
                         {caixa.nome}
+                        {caixa.status !== "livre" && (
+                          <Badge variant="destructive" className="ml-2">Ocupada</Badge>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -304,7 +331,20 @@ export default function ParkingDashboard() {
                 <Button variant="secondary" onClick={() => setDetailsDialogOpen(false)}>
                   Fechar
                 </Button>
-                <Button onClick={encaminharParaCaixa} disabled={!caixaSelecionada}>
+                <Button
+                  onClick={() => {
+                    if (selectedTruck.status !== "approved") {
+                      toast({
+                        title: "Encaminhamento bloqueado",
+                        description: getMotivoBloqueio(selectedTruck.status),
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    encaminharParaCaixa();
+                  }}
+                  disabled={!caixaSelecionada}
+                >
                   Encaminhar para Caixa
                 </Button>
               </div>
