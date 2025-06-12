@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose
+} from "@/components/ui/dialog"
 import { Search, FileDown, Info } from "lucide-react"
 
 export default function HistoryLog() {
@@ -22,23 +24,57 @@ export default function HistoryLog() {
   const [selectedRecord, setSelectedRecord] = useState(null)
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch("/api/historico")
-        const data = await res.json()
-        setHistoryData(data)
-      } catch (err) {
-        console.error("Erro ao carregar histórico:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchHistory()
   }, [])
 
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch("/api/historico")
+      const data = await res.json()
+      setHistoryData(data)
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+const concluirSaida = async (caminhaoId: number) => {
+  try {
+    const res = await fetch(`/api/caminhoes/${caminhaoId}/concluir-saida`, {
+      method: "PATCH",
+    })
+
+    const resultado = await res.json()
+
+    if (res.ok) {
+      console.log("Saída concluída com sucesso:", resultado)
+
+      // Atualiza diretamente o item no modal sem depender do fetchHistory
+      setSelectedRecord((prev) => ({
+        ...prev,
+        horaSaida: resultado.horaSaida,
+        tempoLiberacaoMin: resultado.tempoLiberacaoMin,
+      }))
+
+      // Atualiza a lista geral, substituindo o item
+      setHistoryData((prevData) =>
+        prevData.map((item) =>
+          item.caminhaoId === caminhaoId
+            ? { ...item, horaSaida: resultado.horaSaida, tempoLiberacaoMin: resultado.tempoLiberacaoMin }
+            : item
+        )
+      )
+    } else {
+      console.error("Erro ao concluir saída", resultado)
+    }
+  } catch (err) {
+    console.error("Erro inesperado:", err)
+  }
+}
+
   const filteredData = historyData
-    .filter((item) => item.status === "finalizado") // ✅ Garante que só finalizados aparecem
+    .filter((item) => item.status === "finalizado")
     .filter((item) => {
       const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase())
       const matchesDestination = destinationFilter && destinationFilter !== "all"
@@ -50,6 +86,10 @@ export default function HistoryLog() {
   const openDetailsDialog = (record) => {
     setSelectedRecord(record)
     setDetailsDialogOpen(true)
+  }
+
+  const formatDateTime = (value) => {
+    return value ? new Date(value).toLocaleString() : "N/D"
   }
 
   return (
@@ -97,8 +137,10 @@ export default function HistoryLog() {
                     <TableRow key={item.id}>
                       <TableCell>{item.id}</TableCell>
                       <TableCell>{item.plate}</TableCell>
-                      <TableCell>{new Date(item.collectionDate).toLocaleString()}</TableCell>
-                      <TableCell>{item.releaseTime}</TableCell>
+                      <TableCell>{formatDateTime(item.collectionDate)}</TableCell>
+                      <TableCell>
+                        {item.tempoLiberacaoMin != null ? `${item.tempoLiberacaoMin} min` : "N/D"}
+                      </TableCell>
                       <TableCell>{item.destination}</TableCell>
                       <TableCell>
                         {item.manual ? (
@@ -138,13 +180,21 @@ export default function HistoryLog() {
           </DialogHeader>
 
           {selectedRecord && (
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div><strong>ID:</strong> {selectedRecord.id}</div>
               <div><strong>Placa:</strong> {selectedRecord.plate}</div>
-              <div><strong>Data/Hora:</strong> {new Date(selectedRecord.collectionDate).toLocaleString()}</div>
-              <div><strong>Destino:</strong> {selectedRecord.destination}</div>
-              <div><strong>Origem:</strong> {selectedRecord.origin}</div>
-              <div><strong>Observações:</strong> {selectedRecord.observations}</div>
+              <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
+              <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+              <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
+              <div><strong>Destino:</strong> {selectedRecord.destination || "N/D"}</div>
+              <div><strong>Origem:</strong> {selectedRecord.origin || "N/D"}</div>
+              <div><strong>Observações:</strong> {selectedRecord.observations || "—"}</div>
+
+              {!selectedRecord.horaSaida && (
+                <Button onClick={() => concluirSaida(selectedRecord.caminhaoId)} className="mt-2">
+                  Concluir saída
+                </Button>
+              )}
             </div>
           )}
 

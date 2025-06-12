@@ -15,19 +15,21 @@ model Unidade {
 }
 
 model Caminhao {
-  id             Int            @id @default(autoincrement())
-  placa          String
-  caixaId        Int?
-  criadoEm       DateTime       @default(now())
-  status         StatusCaminhao
-  tipo           TipoResiduo?
-  destinoCaixaId Int?
-  motorista      String
-  transportadora String
-  horaColeta     DateTime?
-  analises       Analise[]
-  caixa          Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
-  destinoCaixa   Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
+  id                Int            @id @default(autoincrement())
+  placa             String
+  caixaId           Int?
+  criadoEm          DateTime       @default(now())
+  status            StatusCaminhao
+  tipo              TipoResiduo?
+  destinoCaixaId    Int?
+  motorista         String
+  transportadora    String
+  horaColeta        DateTime?
+  horaSaida         DateTime?        // ✅ novo campo
+  tempoLiberacaoMin Int?             // ✅ novo campo
+  analises          Analise[]
+  caixa             Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
+  destinoCaixa      Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
 
   @@index([caixaId], map: "Caminhao_caixaId_fkey")
   @@index([destinoCaixaId], map: "Caminhao_destinoCaixaId_fkey")

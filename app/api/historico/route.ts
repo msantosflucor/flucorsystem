@@ -5,9 +5,9 @@ export async function GET() {
   try {
     const analises = await prisma.analise.findMany({
       where: {
-        status: "finalizado", // ✅ Só análises com status finalizado
+        status: "finalizado",
         caminhao: {
-          status: "finalizado", // ✅ Caminhão também precisa estar finalizado
+          status: "finalizado",
         },
       },
       include: {
@@ -19,15 +19,18 @@ export async function GET() {
     });
 
     const historico = analises.map((item) => ({
-      id: item.id.toString(),
+      id: item.id.toString(), // ID da análise
+      caminhaoId: item.caminhaoId, // usado no botão Concluir Saída
       plate: item.caminhao?.placa || "N/A",
-      collectionDate: item.criadoEm,
-      releaseTime: calcularTempoLiberacao(item.criadoEm),
+      collectionDate: item.caminhao?.horaColeta || null,
+      horaSaida: item.caminhao?.horaSaida || null, // ✅ nome esperado pelo front
+      tempoLiberacaoMin: item.caminhao?.tempoLiberacaoMin ?? null, // ✅ nome esperado pelo front
       destination: item.tanque || "N/D",
       manual: item.caminhao?.aguardarNaCaixa || false,
       observations: item.observacoes || "Sem observações",
       origin: item.caminhao?.origem || "N/D",
-      status: item.status, // 🔁 garante compatibilidade com o filtro do frontend
+      entryDate: item.caminhao?.criadoEm || null,
+      status: item.status,
     }));
 
     return NextResponse.json(historico);
@@ -38,11 +41,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
-
-function calcularTempoLiberacao(data: Date) {
-  const agora = new Date();
-  const diffMs = agora.getTime() - new Date(data).getTime();
-  const minutos = Math.floor(diffMs / (1000 * 60));
-  return `${minutos} min`;
 }
