@@ -2,15 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { registrarLog } from "@/lib/log-usuario";
 
 export async function PATCH(request: NextRequest, context: any) {
   try {
     const id = context?.params?.id;
     if (!id || isNaN(Number(id))) {
-      return NextResponse.json(
-        { error: "ID da caixa inválido." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID da caixa inválido." }, { status: 400 });
     }
 
     const caixaId = Number(id);
@@ -26,6 +24,7 @@ export async function PATCH(request: NextRequest, context: any) {
         data: {
           status: "finalizado",
           caixaId: null,
+          // ❌ REMOVIDO: horaSaida será registrada somente pelo botão no histórico
         },
       });
 
@@ -52,6 +51,11 @@ export async function PATCH(request: NextRequest, context: any) {
           },
         });
       }
+
+      await registrarLog(
+        `Finalizou caminhão ${caminhaoAtual.placa || caminhaoAtual.id} ao liberar a caixa`,
+        "Caixas"
+      );
     }
 
     const proximo = await prisma.caminhao.findFirst({
@@ -69,7 +73,6 @@ export async function PATCH(request: NextRequest, context: any) {
           data: {
             caixaId,
             destinoCaixaId: null,
-            // ❌ Não altera status
           },
         });
 
@@ -77,6 +80,11 @@ export async function PATCH(request: NextRequest, context: any) {
           where: { id: caixaId },
           data: { status: "ocupada" },
         });
+
+        await registrarLog(
+          `Puxou automaticamente caminhão ${proximo.placa || proximo.id} para a caixa`,
+          "Caixas"
+        );
 
         return NextResponse.json({
           message: `Caminhão ${proximo.placa || proximo.id} movido automaticamente para a caixa.`,
@@ -110,7 +118,6 @@ export async function PATCH(request: NextRequest, context: any) {
       });
     }
 
-    // Nenhum próximo na fila
     await prisma.caixa.update({
       where: { id: caixaId },
       data: { status: "livre" },

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { registrarLog } from "@/lib/log-usuario";
 
 // PATCH → Mover caminhão manualmente para uma caixa (fila ou ocupação)
 export async function PATCH(
@@ -36,7 +37,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
     }
 
-    // Se a caixa está livre, o caminhão entra direto sem alterar o status atual
+    // Se a caixa está livre, o caminhão entra direto
     if (caixa.status === "livre") {
       await prisma.$transaction([
         prisma.caminhao.update({
@@ -44,7 +45,6 @@ export async function PATCH(
           data: {
             caixaId: caixa.id,
             destinoCaixaId: null,
-            // ❌ NÃO ALTERA status — preserva como está
           },
         }),
         prisma.caixa.update({
@@ -52,6 +52,12 @@ export async function PATCH(
           data: { status: "ocupada" },
         }),
       ]);
+
+      // ✅ Registrar log
+      await registrarLog(
+        `Moveu caminhão ${caminhao.placa} diretamente para a caixa ${caixa.nome}`,
+        "Estacionamento"
+      );
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} movido diretamente para a caixa ${caixa.nome}.`,
@@ -64,6 +70,12 @@ export async function PATCH(
           destinoCaixaId: caixa.id,
         },
       });
+
+      // ✅ Registrar log
+      await registrarLog(
+        `Encaminhou caminhão ${caminhao.placa} para a fila da caixa ${caixa.nome}`,
+        "Estacionamento"
+      );
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} encaminhado para a fila da caixa ${caixa.nome}.`,

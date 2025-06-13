@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { StatusCaminhao } from "@prisma/client";
+import { registrarLog } from "@/lib/log-usuario";
 
 // ✅ POST - Cadastrar novo caminhão
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { placa, motorista, transportadora } = await req.json();
 
@@ -24,6 +25,9 @@ export async function POST(req: Request) {
       },
     });
 
+    // ✅ Registrar log
+    await registrarLog("Cadastrou caminhão", "Cadastro Caminhão");
+
     return NextResponse.json(novoCaminhao, { status: 201 });
   } catch (error) {
     console.error("Erro ao salvar caminhão:", error);
@@ -42,7 +46,7 @@ export async function GET() {
       include: {
         caixa: true,
         destinoCaixa: true,
-        analises: true, // ✅ Correto: múltiplas análises
+        analises: true,
       },
     });
 

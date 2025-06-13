@@ -7,7 +7,8 @@ export async function GET() {
       where: {
         status: "finalizado",
         caminhao: {
-          status: "finalizado",
+          status: "finalizado", // ✅ mantém esse filtro
+          // ❌ remove o filtro de horaSaida
         },
       },
       include: {
@@ -19,12 +20,12 @@ export async function GET() {
     });
 
     const historico = analises.map((item) => ({
-      id: item.id.toString(), // ID da análise
-      caminhaoId: item.caminhaoId, // usado no botão Concluir Saída
+      id: item.id.toString(),
+      caminhaoId: item.caminhaoId,
       plate: item.caminhao?.placa || "N/A",
       collectionDate: item.caminhao?.horaColeta || null,
-      horaSaida: item.caminhao?.horaSaida || null, // ✅ nome esperado pelo front
-      tempoLiberacaoMin: item.caminhao?.tempoLiberacaoMin ?? null, // ✅ nome esperado pelo front
+      horaSaida: item.caminhao?.horaSaida || null,
+      tempoLiberacaoMin: item.caminhao?.tempoLiberacaoMin ?? null,
       destination: item.tanque || "N/D",
       manual: item.caminhao?.aguardarNaCaixa || false,
       observations: item.observacoes || "Sem observações",

@@ -25,8 +25,8 @@ model Caminhao {
   motorista         String
   transportadora    String
   horaColeta        DateTime?
-  horaSaida         DateTime?        // ✅ novo campo
-  tempoLiberacaoMin Int?             // ✅ novo campo
+  horaSaida         DateTime?
+  tempoLiberacaoMin Int?
   analises          Analise[]
   caixa             Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
   destinoCaixa      Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
@@ -79,6 +79,8 @@ model Usuario {
   id         Int         @id @default(autoincrement())
   username   String      @unique
   senhaHash  String
+  email      String?
+  documento  String?
   role       Role        @default(PADRAO)
   criadoEm   DateTime    @default(now())
   permissoes Permissao[]
@@ -91,6 +93,16 @@ model Permissao {
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
   @@index([usuarioId], map: "Permissao_usuarioId_fkey")
+}
+
+model LogUsuario {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int?
+  acao       String
+  autor      String
+  modulo     String?  // ← agora opcional, evita erro ao migrar
+  detalhes   String?
+  criadoEm   DateTime @default(now())
 }
 
 enum StatusLinha {
@@ -123,6 +135,7 @@ enum TipoResiduo {
 enum Role {
   SYSADMIN
   PADRAO
+  QUIMICO
 }
 
 enum Modulo {

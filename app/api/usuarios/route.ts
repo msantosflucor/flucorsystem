@@ -5,24 +5,18 @@ import { jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
-// 🔐 Verificação segura via cookie + jose + logs
 async function autenticarViaCookie(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
-  if (!token) {
-    console.error("🚫 Nenhum token encontrado no cookie.");
-    return null;
-  }
+  if (!token) return null;
 
   try {
     const { payload }: any = await jwtVerify(
       token,
       new TextEncoder().encode(JWT_SECRET)
     );
-    // ✅ Token válido - log removido para evitar excesso
     return payload?.role === "SYSADMIN" ? payload : null;
   } catch (error) {
-    console.error("🛑 Token inválido ou expirado:", error);
-    console.error("🔍 Token recebido:", token);
+    console.error("Token inválido:", error);
     return null;
   }
 }
@@ -34,9 +28,18 @@ export async function POST(req: NextRequest) {
     if (!admin)
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
-    const { username, senha, modulos } = await req.json();
+    const { username, senha, modulos, email, documento, role } = await req.json();
+
     if (!username || !senha || !Array.isArray(modulos)) {
       return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+    }
+
+    const jaExiste = await prisma.usuario.findUnique({ where: { username } });
+    if (jaExiste) {
+      return NextResponse.json(
+        { error: "Nome de usuário já cadastrado." },
+        { status: 409 }
+      );
     }
 
     const senhaHash = await bcrypt.hash(senha, 10);
@@ -45,16 +48,27 @@ export async function POST(req: NextRequest) {
       data: {
         username,
         senhaHash,
-        role: "PADRAO",
+        email,
+        documento,
+        role: role || "PADRAO",
         permissoes: {
           create: modulos.map((modulo: string) => ({ modulo })),
         },
       },
     });
 
+    await prisma.logUsuario.create({
+      data: {
+        usuarioId: novoUsuario.id,
+        acao: "CRIACAO",
+        autor: admin.username,
+        detalhes: `Usuário '${username}' criado com role ${role}`,
+      },
+    });
+
     return NextResponse.json({ usuario: novoUsuario }, { status: 201 });
-  } catch (error: any) {
-    console.error("❌ Erro no POST /api/usuarios:", error);
+  } catch (error) {
+    console.error("Erro no POST /api/usuarios:", error);
     return NextResponse.json(
       { error: "Erro interno ao criar usuário." },
       { status: 500 }
@@ -77,13 +91,15 @@ export async function GET(req: NextRequest) {
     const formatado = usuarios.map((u) => ({
       id: u.id,
       username: u.username,
+      email: u.email,
+      documento: u.documento,
       role: u.role,
       permissoes: u.permissoes.map((p) => p.modulo),
     }));
 
     return NextResponse.json({ usuarios: formatado });
   } catch (error) {
-    console.error("❌ Erro no GET /api/usuarios:", error);
+    console.error("Erro no GET /api/usuarios:", error);
     return NextResponse.json(
       { error: "Erro interno ao listar usuários." },
       { status: 500 }
@@ -91,17 +107,35 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ✅ PATCH - Atualizar permissões de usuário
+// ✅ PATCH - Atualizar dados e permissões de usuário
 export async function PATCH(req: NextRequest) {
   try {
     const admin = await autenticarViaCookie(req);
     if (!admin)
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
-    const { id, modulos } = await req.json();
+    const { id, username, email, documento, role, modulos, novaSenha } =
+      await req.json();
+
     if (!id || !Array.isArray(modulos)) {
       return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
     }
+
+    const updateData: any = {
+      username,
+      email,
+      documento,
+      role,
+    };
+
+    if (novaSenha && novaSenha.length >= 6) {
+      updateData.senhaHash = await bcrypt.hash(novaSenha, 10);
+    }
+
+    await prisma.usuario.update({
+      where: { id },
+      data: updateData,
+    });
 
     await prisma.permissao.deleteMany({ where: { usuarioId: id } });
 
@@ -112,11 +146,20 @@ export async function PATCH(req: NextRequest) {
       })),
     });
 
+    await prisma.logUsuario.create({
+      data: {
+        usuarioId: id,
+        acao: "EDICAO",
+        autor: admin.username,
+        detalhes: `Usuário '${username}' editado. Role: ${role}. Permissões: [${modulos.join(", ")}]`,
+      },
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("❌ Erro no PATCH /api/usuarios:", error);
+    console.error("Erro no PATCH /api/usuarios:", error);
     return NextResponse.json(
-      { error: "Erro ao atualizar permissões." },
+      { error: "Erro ao atualizar dados do usuário." },
       { status: 500 }
     );
   }
@@ -133,12 +176,23 @@ export async function DELETE(req: NextRequest) {
     if (!id)
       return NextResponse.json({ error: "ID não fornecido." }, { status: 400 });
 
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+
     await prisma.permissao.deleteMany({ where: { usuarioId: id } });
     await prisma.usuario.delete({ where: { id } });
 
+    await prisma.logUsuario.create({
+      data: {
+        usuarioId: id,
+        acao: "EXCLUSAO",
+        autor: admin.username,
+        detalhes: `Usuário '${usuario?.username}' excluído do sistema`,
+      },
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("❌ Erro no DELETE /api/usuarios:", error);
+    console.error("Erro no DELETE /api/usuarios:", error);
     return NextResponse.json(
       { error: "Erro ao excluir usuário." },
       { status: 500 }

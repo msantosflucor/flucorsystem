@@ -11,7 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose
 } from "@/components/ui/dialog"
 import { Search, FileDown, Info } from "lucide-react"
 
@@ -29,7 +29,7 @@ export default function HistoryLog() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("/api/historico")
+      const res = await fetch("/api/historico", { cache: "no-store" })
       const data = await res.json()
       setHistoryData(data)
     } catch (err) {
@@ -39,39 +39,35 @@ export default function HistoryLog() {
     }
   }
 
-const concluirSaida = async (caminhaoId: number) => {
-  try {
-    const res = await fetch(`/api/caminhoes/${caminhaoId}/concluir-saida`, {
-      method: "PATCH",
-    })
+  const concluirSaida = async (caminhaoId: number) => {
+    try {
+      const res = await fetch(`/api/caminhoes/${caminhaoId}/concluir-saida`, {
+        method: "PATCH",
+      })
 
-    const resultado = await res.json()
+      const resultado = await res.json()
 
-    if (res.ok) {
-      console.log("Saída concluída com sucesso:", resultado)
+      if (res.ok) {
+        setSelectedRecord((prev) => ({
+          ...prev,
+          horaSaida: resultado.horaSaida,
+          tempoLiberacaoMin: resultado.tempoLiberacaoMin,
+        }))
 
-      // Atualiza diretamente o item no modal sem depender do fetchHistory
-      setSelectedRecord((prev) => ({
-        ...prev,
-        horaSaida: resultado.horaSaida,
-        tempoLiberacaoMin: resultado.tempoLiberacaoMin,
-      }))
-
-      // Atualiza a lista geral, substituindo o item
-      setHistoryData((prevData) =>
-        prevData.map((item) =>
-          item.caminhaoId === caminhaoId
-            ? { ...item, horaSaida: resultado.horaSaida, tempoLiberacaoMin: resultado.tempoLiberacaoMin }
-            : item
+        setHistoryData((prevData) =>
+          prevData.map((item) =>
+            item.caminhaoId === caminhaoId
+              ? { ...item, horaSaida: resultado.horaSaida, tempoLiberacaoMin: resultado.tempoLiberacaoMin }
+              : item
+          )
         )
-      )
-    } else {
-      console.error("Erro ao concluir saída", resultado)
+      } else {
+        console.error("Erro ao concluir saída", resultado)
+      }
+    } catch (err) {
+      console.error("Erro inesperado:", err)
     }
-  } catch (err) {
-    console.error("Erro inesperado:", err)
   }
-}
 
   const filteredData = historyData
     .filter((item) => item.status === "finalizado")
@@ -177,6 +173,7 @@ const concluirSaida = async (caminhaoId: number) => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes do Descarregamento</DialogTitle>
+            <DialogDescription>Informações completas do caminhão e operação</DialogDescription>
           </DialogHeader>
 
           {selectedRecord && (
@@ -186,6 +183,7 @@ const concluirSaida = async (caminhaoId: number) => {
               <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
               <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
               <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
+              <div><strong>Tempo Liberação:</strong> {selectedRecord.tempoLiberacaoMin != null ? `${selectedRecord.tempoLiberacaoMin} min` : "N/D"}</div>
               <div><strong>Destino:</strong> {selectedRecord.destination || "N/D"}</div>
               <div><strong>Origem:</strong> {selectedRecord.origin || "N/D"}</div>
               <div><strong>Observações:</strong> {selectedRecord.observations || "—"}</div>

@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import EditUserModal from "@/components/EditUserModal";
 
 const MODULOS = [
   "DASHBOARD",
@@ -18,9 +27,13 @@ const MODULOS = [
   "CAMINHAO",
 ];
 
+const ROLES = ["PADRAO", "QUIMICO", "SYSADMIN"];
+
 type Usuario = {
   id: number;
   username: string;
+  email?: string;
+  documento?: string;
   role: string;
   permissoes: string[];
 };
@@ -28,22 +41,20 @@ type Usuario = {
 export default function UsuariosPage() {
   const [username, setUsername] = useState("");
   const [senha, setSenha] = useState("");
+  const [email, setEmail] = useState("");
+  const [documento, setDocumento] = useState("");
+  const [role, setRole] = useState("PADRAO");
   const [modulosSelecionados, setModulosSelecionados] = useState<string[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(false);
-  const [modoEdicao, setModoEdicao] = useState<number | null>(null);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [usuarioEdicao, setUsuarioEdicao] = useState<Usuario | null>(null);
 
   const router = useRouter();
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchUsuarios = async () => {
     try {
-      const res = await fetch("/api/usuarios", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error("Falha ao buscar usuários.");
-
+      const res = await fetch("/api/usuarios", { credentials: "include" });
       const data = await res.json();
       setUsuarios(data.usuarios);
     } catch (error: any) {
@@ -52,12 +63,6 @@ export default function UsuariosPage() {
   };
 
   useEffect(() => {
-    const role = localStorage.getItem("role");
-    if (role?.toUpperCase() !== "SYSADMIN") {
-      router.push("/dashboard");
-      return;
-    }
-
     fetchUsuarios();
   }, []);
 
@@ -75,13 +80,14 @@ export default function UsuariosPage() {
     try {
       const res = await fetch("/api/usuarios", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username,
           senha,
+          email,
+          documento,
+          role,
           modulos: modulosSelecionados,
         }),
       });
@@ -90,9 +96,7 @@ export default function UsuariosPage() {
       if (!res.ok) throw new Error(data.error || "Erro ao cadastrar usuário.");
 
       toast({ title: "Usuário criado!" });
-      setUsername("");
-      setSenha("");
-      setModulosSelecionados([]);
+      limparFormulario();
       fetchUsuarios();
     } catch (error: any) {
       toast({ title: "Erro", description: error.message });
@@ -102,41 +106,8 @@ export default function UsuariosPage() {
   };
 
   const handleEditar = (usuario: Usuario) => {
-    setModoEdicao(usuario.id);
-    setUsername(usuario.username);
-    setSenha("");
-    setModulosSelecionados(usuario.permissoes);
-  };
-
-  const handleSalvarEdicao = async () => {
-    if (!modoEdicao) return;
-    setCarregando(true);
-    try {
-      const res = await fetch("/api/usuarios", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          id: modoEdicao,
-          modulos: modulosSelecionados,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Erro ao salvar edição");
-
-      toast({ title: "Permissões atualizadas" });
-      setModoEdicao(null);
-      setUsername("");
-      setSenha("");
-      setModulosSelecionados([]);
-      fetchUsuarios();
-    } catch (error: any) {
-      toast({ title: "Erro", description: error.message });
-    } finally {
-      setCarregando(false);
-    }
+    setUsuarioEdicao(usuario);
+    setModalAberto(true);
   };
 
   const handleExcluir = async (id: number) => {
@@ -146,10 +117,8 @@ export default function UsuariosPage() {
     try {
       const res = await fetch("/api/usuarios", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
 
@@ -162,35 +131,52 @@ export default function UsuariosPage() {
     }
   };
 
+  const limparFormulario = () => {
+    setUsername("");
+    setSenha("");
+    setEmail("");
+    setDocumento("");
+    setRole("PADRAO");
+    setModulosSelecionados([]);
+  };
+
   return (
     <div className="flex flex-col items-center gap-8 py-8">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-3xl flex justify-between">
         <Button variant="outline" onClick={() => router.push("/dashboard")}>
           ← Voltar
+        </Button>
+        <Button variant="secondary" onClick={() => router.push("/auth/logs")}>
+          Ver Logs de Atividade
         </Button>
       </div>
 
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center">
-            {modoEdicao ? "Editar Permissões" : "Cadastrar Usuário"}
-          </CardTitle>
+          <CardTitle className="text-center">Cadastrar Usuário</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            placeholder="Usuário"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            disabled={modoEdicao !== null}
-          />
-          {!modoEdicao && (
-            <Input
-              type="password"
-              placeholder="Senha"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-            />
-          )}
+          <Input placeholder="Usuário" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <Input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} />
+          <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input placeholder="RG ou CNH" value={documento} onChange={(e) => setDocumento(e.target.value)} />
+
+          <div className="space-y-1">
+            <Label>Função</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a função" />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <p className="font-semibold mb-2">Permissões:</p>
             <div className="grid grid-cols-2 gap-2">
@@ -205,16 +191,9 @@ export default function UsuariosPage() {
               ))}
             </div>
           </div>
-          <Button
-            className="w-full mt-4"
-            onClick={modoEdicao ? handleSalvarEdicao : handleCadastrar}
-            disabled={carregando}
-          >
-            {carregando
-              ? "Salvando..."
-              : modoEdicao
-              ? "Salvar Permissões"
-              : "Cadastrar"}
+
+          <Button className="w-full mt-4" onClick={handleCadastrar} disabled={carregando}>
+            {carregando ? "Salvando..." : "Cadastrar"}
           </Button>
         </CardContent>
       </Card>
@@ -228,11 +207,11 @@ export default function UsuariosPage() {
               className="border rounded-md p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
             >
               <div>
-                <p className="font-semibold">{u.username} ({u.role})</p>
+                <p className="font-semibold">
+                  {u.username} ({u.role})
+                </p>
                 <p className="text-sm text-gray-600">
-                  {u.permissoes.length
-                    ? u.permissoes.join(", ")
-                    : "Sem permissões"}
+                  {u.permissoes.length ? u.permissoes.join(", ") : "Sem permissões"}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -247,6 +226,18 @@ export default function UsuariosPage() {
           ))}
         </ul>
       </div>
+
+      {usuarioEdicao && (
+        <EditUserModal
+          isOpen={modalAberto}
+          onClose={() => setModalAberto(false)}
+          usuario={usuarioEdicao}
+          onSave={() => {
+            setModalAberto(false);
+            fetchUsuarios();
+          }}
+        />
+      )}
     </div>
   );
 }
