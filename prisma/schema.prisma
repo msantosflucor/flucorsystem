@@ -15,21 +15,32 @@ model Unidade {
 }
 
 model Caminhao {
-  id                Int            @id @default(autoincrement())
-  placa             String
-  caixaId           Int?
-  criadoEm          DateTime       @default(now())
-  status            StatusCaminhao
-  tipo              TipoResiduo?
-  destinoCaixaId    Int?
-  motorista         String
-  transportadora    String
-  horaColeta        DateTime?
-  horaSaida         DateTime?
-  tempoLiberacaoMin Int?
-  analises          Analise[]
-  caixa             Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
-  destinoCaixa      Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
+  id                   Int            @id @default(autoincrement())
+  placa                String
+  caixaId              Int?
+  criadoEm             DateTime       @default(now())
+  status               StatusCaminhao
+  tipo                 TipoResiduo?
+  destinoCaixaId       Int?
+  motorista            String
+  transportadora       String
+  horaColeta           DateTime?
+  horaSaida            DateTime?
+  tempoLiberacaoMin    Int?
+
+  // 📌 Novos campos adicionados:
+  documentoMotorista   String
+  possuiMTR            Boolean        @default(false)
+  possuiNotaFiscal     Boolean        @default(false)
+  anomaliaVeiculo      Boolean        @default(false)
+  descricaoAnomalia    String?
+  possuiEPI            Boolean        @default(false)
+  vestimentaIrregular  Boolean        @default(false)
+  estadoFisico         String?        // "normal", "embriagado", "alterado", etc.
+
+  analises             Analise[]
+  caixa                Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
+  destinoCaixa         Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
 
   @@index([caixaId], map: "Caminhao_caixaId_fkey")
   @@index([destinoCaixaId], map: "Caminhao_destinoCaixaId_fkey")
@@ -100,7 +111,7 @@ model LogUsuario {
   usuarioId  Int?
   acao       String
   autor      String
-  modulo     String?  // ← agora opcional, evita erro ao migrar
+  modulo     String?
   detalhes   String?
   criadoEm   DateTime @default(now())
 }

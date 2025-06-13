@@ -3,12 +3,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { StatusCaminhao } from "@prisma/client";
 import { registrarLog } from "@/lib/log-usuario";
 
-// ✅ POST - Cadastrar novo caminhão
+// ✅ POST - Cadastrar novo caminhão com novos campos
 export async function POST(req: NextRequest) {
   try {
-    const { placa, motorista, transportadora } = await req.json();
+    const {
+      placa,
+      motorista,
+      transportadora,
+      documentoMotorista,
+      possuiMTR = false,
+      possuiNotaFiscal = false,
+      anomaliaVeiculo = false,
+      descricaoAnomalia = null,
+      possuiEPI = false,
+      vestimentaIrregular = false,
+      estadoFisico = null,
+    } = await req.json();
 
-    if (!placa || !motorista || !transportadora) {
+    // ✅ Verificação dos campos obrigatórios
+    if (!placa || !motorista || !transportadora || !documentoMotorista) {
       return NextResponse.json(
         { error: "Campos obrigatórios faltando." },
         { status: 400 }
@@ -20,6 +33,14 @@ export async function POST(req: NextRequest) {
         placa,
         motorista,
         transportadora,
+        documentoMotorista,
+        possuiMTR,
+        possuiNotaFiscal,
+        anomaliaVeiculo,
+        descricaoAnomalia,
+        possuiEPI,
+        vestimentaIrregular,
+        estadoFisico,
         status: StatusCaminhao.in_progress,
         criadoEm: new Date(),
       },
