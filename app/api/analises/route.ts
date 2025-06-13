@@ -1,103 +1,64 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { StatusCaminhao } from "@prisma/client";
 
-// ✅ POST - Registrar uma nova análise (laboratorial)
-export async function POST(req: Request) {
-  try {
-    const { caminhaoId, status, tanque, observacoes } = await req.json();
+export const dynamic = "force-dynamic";
 
-    if (!caminhaoId || !status || !tanque) {
-      return NextResponse.json(
-        { error: "Dados obrigatórios faltando (caminhaoId, status, tanque)." },
-        { status: 400 }
-      );
-    }
-
-    const caminhao = await prisma.caminhao.findUnique({
-      where: { id: caminhaoId },
-    });
-
-    if (!caminhao) {
-      return NextResponse.json(
-        { error: "Caminhão não encontrado." },
-        { status: 404 }
-      );
-    }
-
-    // ✅ Criar nova análise vinculada ao caminhão
-    await prisma.analise.create({
-      data: {
-        caminhaoId,
-        status,
-        tanque,
-        observacoes,
-      },
-    });
-
-    // ✅ Atualizar status do caminhão
-    await prisma.caminhao.update({
-      where: { id: caminhaoId },
-      data: {
-        status,
-        caixaId: caminhao.caixaId ?? null,
-      },
-    });
-
-    return NextResponse.json(
-      { message: "Análise registrada e status do caminhão atualizado." },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Erro ao registrar análise:", error);
-    return NextResponse.json(
-      { error: "Erro interno ao salvar análise." },
-      { status: 500 }
-    );
-  }
-}
-
-// ✅ GET - Listar todas as análises (histórico de liberações)
+// ✅ GET: listar análises incompatíveis
 export async function GET() {
   try {
     const analises = await prisma.analise.findMany({
+      where: {
+        status: "incompatible",
+        liberadaIncompativel: false,
+      },
       include: {
-        caminhao: {
-          include: {
-            caixa: true,
-          },
-        },
+        caminhao: true,
       },
       orderBy: {
         criadoEm: "desc",
       },
     });
 
-    const resultado = analises.map((a) => ({
-      id: a.id,
-      status: a.status,
-      tanque: a.tanque,
-      observacoes: a.observacoes,
-      criadoEm: a.criadoEm,
-      caminhao: {
-        id: a.caminhao.id,
-        placa: a.caminhao.placa,
-        origem: a.caminhao.origem,
-        tipo: a.caminhao.tipo,
-        caixa: a.caminhao.caixa
-          ? {
-              id: a.caminhao.caixa.id,
-              nome: a.caminhao.caixa.nome,
-              tipoResiduo: a.caminhao.caixa.tipoResiduo,
-            }
-          : null,
-      },
-    }));
-
-    return NextResponse.json(resultado, { status: 200 });
+    return NextResponse.json(analises);
   } catch (error) {
-    console.error("Erro ao buscar análises:", error);
+    console.error("Erro ao buscar análises incompatíveis:", error);
     return NextResponse.json(
-      { error: "Erro interno ao buscar análises." },
+      { error: "Erro ao buscar análises incompatíveis" },
+      { status: 500 }
+    );
+  }
+}
+
+// ✅ POST: registrar nova análise
+export async function POST(req: NextRequest) {
+  try {
+    const { caminhaoId, status, tanque, observacoes } = await req.json();
+
+    if (!caminhaoId || !status || !tanque) {
+      return NextResponse.json({ error: "Dados obrigatórios faltando." }, { status: 400 });
+    }
+
+    const novaAnalise = await prisma.analise.create({
+      data: {
+        caminhaoId,
+        status: status as StatusCaminhao,
+        tanque,
+        observacoes,
+      },
+    });
+
+    // Atualiza status do caminhão junto
+    await prisma.caminhao.update({
+      where: { id: caminhaoId },
+      data: { status: status as StatusCaminhao },
+    });
+
+    return NextResponse.json(novaAnalise, { status: 201 });
+  } catch (error) {
+    console.error("Erro ao salvar análise:", error);
+    return NextResponse.json(
+      { error: "Erro interno ao salvar análise." },
       { status: 500 }
     );
   }

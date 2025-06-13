@@ -47,13 +47,14 @@ model Caminhao {
 }
 
 model Analise {
-  id          Int            @id @default(autoincrement())
-  caminhaoId  Int
-  status      StatusCaminhao
-  tanque      String
-  observacoes String
-  criadoEm    DateTime       @default(now())
-  caminhao    Caminhao       @relation(fields: [caminhaoId], references: [id])
+  id                      Int            @id @default(autoincrement())
+  caminhaoId              Int
+  status                  StatusCaminhao
+  tanque                  String
+  observacoes             String
+  criadoEm                DateTime       @default(now())
+  liberadaIncompativel    Boolean?       @default(false) // ✅ Novo campo para controle químico
+  caminhao                Caminhao       @relation(fields: [caminhaoId], references: [id])
 
   @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
 }

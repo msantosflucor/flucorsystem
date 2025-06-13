@@ -29,7 +29,7 @@ export async function GET() {
       destination: item.tanque || "N/D",
       manual: item.caminhao?.aguardarNaCaixa || false,
       observations: item.observacoes || "Sem observações",
-      origin: item.caminhao?.origem || "N/D",
+      transportadora: item.caminhao?.transportadora || "N/D",
       entryDate: item.caminhao?.criadoEm || null,
       status: item.status,
     }));

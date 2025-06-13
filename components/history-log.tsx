@@ -185,7 +185,7 @@ export default function HistoryLog() {
               <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
               <div><strong>Tempo Liberação:</strong> {selectedRecord.tempoLiberacaoMin != null ? `${selectedRecord.tempoLiberacaoMin} min` : "N/D"}</div>
               <div><strong>Destino:</strong> {selectedRecord.destination || "N/D"}</div>
-              <div><strong>Origem:</strong> {selectedRecord.origin || "N/D"}</div>
+              <div><strong>Transportadora:</strong> {selectedRecord.transportadora}</div>
               <div><strong>Observações:</strong> {selectedRecord.observations || "—"}</div>
 
               {!selectedRecord.horaSaida && (

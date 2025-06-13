@@ -40,12 +40,27 @@ export async function PATCH(
 
     const caminhao = await prisma.caminhao.findUnique({
       where: { id: caminhaoId },
+      include: {
+        analises: {
+          orderBy: { criadoEm: "desc" },
+          take: 1,
+        },
+      },
     });
 
     if (!caminhao) {
       return NextResponse.json(
         { error: "Caminhão não encontrado." },
         { status: 404 }
+      );
+    }
+
+    const ultimaAnalise = caminhao.analises?.[0];
+
+    if (!ultimaAnalise || ultimaAnalise.status !== "approved") {
+      return NextResponse.json(
+        { error: "A análise do caminhão não foi aprovada." },
+        { status: 403 }
       );
     }
 

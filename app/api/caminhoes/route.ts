@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { StatusCaminhao } from "@prisma/client";
 import { registrarLog } from "@/lib/log-usuario";
 
-// ✅ POST - Cadastrar novo caminhão com novos campos
+// ✅ POST - Cadastrar novo caminhão com campos estendidos
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
       estadoFisico = null,
     } = await req.json();
 
-    // ✅ Verificação dos campos obrigatórios
     if (!placa || !motorista || !transportadora || !documentoMotorista) {
       return NextResponse.json(
         { error: "Campos obrigatórios faltando." },
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ✅ Registrar log
     await registrarLog("Cadastrou caminhão", "Cadastro Caminhão");
 
     return NextResponse.json(novoCaminhao, { status: 201 });
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ GET - Listar todos os caminhões com caixa e análises incluídas
+// ✅ GET - Listar todos os caminhões com análises e caixas incluídas
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
@@ -67,7 +65,10 @@ export async function GET() {
       include: {
         caixa: true,
         destinoCaixa: true,
-        analises: true,
+        analises: {
+          orderBy: { criadoEm: "desc" },
+          take: 1, // pega só a análise mais recente
+        },
       },
     });
 
