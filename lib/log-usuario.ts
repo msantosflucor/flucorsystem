@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
-export async function registrarLog(acao: string, modulo: string, usuarioId?: number) {
+export async function registrarLog(acao: string, contexto: string, usuarioId?: number) {
   try {
     let autor = "Desconhecido";
     let resolvedUserId = usuarioId || null;
@@ -14,7 +14,6 @@ export async function registrarLog(acao: string, modulo: string, usuarioId?: num
       const { payload }: any = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
       autor = payload.username || payload.sub || "Sem nome";
 
-      // ✅ Correção aqui
       if (!resolvedUserId && payload.id) {
         resolvedUserId = parseInt(payload.id);
       }
@@ -23,7 +22,7 @@ export async function registrarLog(acao: string, modulo: string, usuarioId?: num
     await prisma.logUsuario.create({
       data: {
         acao,
-        modulo,
+        contexto,            // ✅ substitui "modulo"
         autor,
         usuarioId: resolvedUserId,
         criadoEm: new Date(),

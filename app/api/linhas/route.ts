@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { registrarLog } from "@/lib/log-usuario";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 
-const TARGET = 50; // Meta de caminhões por linha (ajustável)
+const TARGET = 50;
+const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
 // GET - Listar linhas com dados de caixas, carga e eficiência
 export async function GET() {
@@ -68,6 +72,21 @@ export async function PATCH(req: Request) {
       );
     }
 
+    // ✅ Identificar usuário logado via token
+    let usuarioId = null;
+    let autor = "Desconhecido";
+
+    try {
+      const token = cookies().get("token")?.value;
+      if (token) {
+        const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+        usuarioId = payload.id as number;
+        autor = payload.username as string;
+      }
+    } catch (err) {
+      console.warn("Falha ao identificar usuário para log");
+    }
+
     const linhaAtualizada = await prisma.linha.update({
       where: { id },
       data: {
@@ -77,6 +96,41 @@ export async function PATCH(req: Request) {
       },
       include: { caixas: true },
     });
+
+    // ✅ Se for colocada em manutenção, registra nova entrada e log
+    if (status === "maintenance" && motivoManutencao?.trim()) {
+      await prisma.manutencaoLinha.create({
+        data: {
+          linhaId: id,
+          motivo: motivoManutencao,
+        },
+      });
+
+      await registrarLog(
+        `Colocou a linha "${linhaAtualizada.nome}" em manutenção`,
+        "LINHAS",
+        usuarioId
+      );
+    }
+
+    // ✅ Se for reativada, finaliza o registro aberto e registra log
+    if (status === "active") {
+      await prisma.manutencaoLinha.updateMany({
+        where: {
+          linhaId: id,
+          finalizadoEm: null,
+        },
+        data: {
+          finalizadoEm: new Date(),
+        },
+      });
+
+      await registrarLog(
+        `Retirou a linha "${linhaAtualizada.nome}" da manutenção`,
+        "LINHAS",
+        usuarioId
+      );
+    }
 
     const caixasIds = linhaAtualizada.caixas.map((caixa) => caixa.id);
 

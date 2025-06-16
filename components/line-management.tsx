@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +21,7 @@ interface Linha {
 
 export default function LineManagement() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [lines, setLines] = useState<Linha[]>([]);
   const [selectedLine, setSelectedLine] = useState<Linha | null>(null);
@@ -131,10 +133,16 @@ export default function LineManagement() {
             </CardHeader>
             <CardContent>
               {line.status === "maintenance" && line.motivoManutencao && (
-                <div className="text-sm bg-purple-50 border border-purple-200 p-2 rounded-md">
+                <div className="text-sm bg-purple-50 border border-purple-200 p-2 rounded-md mb-2">
                   <strong>Motivo:</strong> {line.motivoManutencao}
                 </div>
               )}
+              <Button
+                variant="secondary"
+                className="text-xs"
+                onClick={() => router.push(`/linhas/${line.id}/historico`)}>
+                Ver Histórico
+              </Button>
             </CardContent>
           </Card>
         ))}

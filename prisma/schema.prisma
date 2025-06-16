@@ -28,7 +28,7 @@ model Caminhao {
   horaSaida            DateTime?
   tempoLiberacaoMin    Int?
 
-  // 📌 Novos campos adicionados:
+  // Campos de segurança e inspeção
   documentoMotorista   String
   possuiMTR            Boolean        @default(false)
   possuiNotaFiscal     Boolean        @default(false)
@@ -36,7 +36,7 @@ model Caminhao {
   descricaoAnomalia    String?
   possuiEPI            Boolean        @default(false)
   vestimentaIrregular  Boolean        @default(false)
-  estadoFisico         String?        // "normal", "embriagado", "alterado", etc.
+  estadoFisico         String?
 
   analises             Analise[]
   caixa                Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
@@ -47,14 +47,16 @@ model Caminhao {
 }
 
 model Analise {
-  id                      Int            @id @default(autoincrement())
-  caminhaoId              Int
-  status                  StatusCaminhao
-  tanque                  String
-  observacoes             String
-  criadoEm                DateTime       @default(now())
-  liberadaIncompativel    Boolean?       @default(false) // ✅ Novo campo para controle químico
-  caminhao                Caminhao       @relation(fields: [caminhaoId], references: [id])
+  id                           Int            @id @default(autoincrement())
+  caminhaoId                   Int
+  status                       StatusCaminhao
+  tanque                       String
+  observacoes                  String
+  criadoEm                     DateTime       @default(now())
+  liberadaIncompativel         Boolean?       @default(false)
+  motivoLiberacaoSemDescarga   String?
+
+  caminhao                     Caminhao       @relation(fields: [caminhaoId], references: [id])
 
   @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
 }
@@ -66,6 +68,7 @@ model Caixa {
   tipoResiduo TipoResiduo
   linhaId     Int?
   criadoEm    DateTime    @default(now())
+
   linha       Linha?      @relation(fields: [linhaId], references: [id])
   caminhoes   Caminhao[]  @relation("CaixaAtual")
   destinoPara Caminhao[]  @relation("CaixaDestino")
@@ -85,6 +88,19 @@ model Linha {
   ultimaManutencao DateTime
   criadoEm         DateTime    @default(now())
   caixas           Caixa[]
+  manutencoes      ManutencaoLinha[] // ➕ Relacionamento com histórico
+}
+
+model ManutencaoLinha {
+  id            Int      @id @default(autoincrement())
+  linhaId       Int
+  motivo        String
+  criadoEm      DateTime @default(now()) // Início da manutenção
+  finalizadoEm  DateTime?                 // Fim da manutenção
+
+  linha         Linha    @relation(fields: [linhaId], references: [id])
+
+  @@index([linhaId])
 }
 
 model Usuario {
@@ -95,7 +111,9 @@ model Usuario {
   documento  String?
   role       Role        @default(PADRAO)
   criadoEm   DateTime    @default(now())
+
   permissoes Permissao[]
+  logs       LogUsuario[]
 }
 
 model Permissao {
@@ -108,13 +126,14 @@ model Permissao {
 }
 
 model LogUsuario {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   usuarioId  Int?
+  usuario    Usuario?  @relation(fields: [usuarioId], references: [id])
   acao       String
   autor      String
-  modulo     String?
+  contexto   String?
   detalhes   String?
-  criadoEm   DateTime @default(now())
+  criadoEm   DateTime   @default(now())
 }
 
 enum StatusLinha {

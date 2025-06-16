@@ -1,92 +1,97 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
-} from "@/components/ui/table"
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose
-} from "@/components/ui/dialog"
-import { Search, FileDown, Info } from "lucide-react"
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose,
+} from "@/components/ui/dialog";
+import { Search, FileDown, Info } from "lucide-react";
 
 export default function HistoryLog() {
-  const [historyData, setHistoryData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchPlate, setSearchPlate] = useState("")
-  const [destinationFilter, setDestinationFilter] = useState("")
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState(null)
+  const [historyData, setHistoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchPlate, setSearchPlate] = useState("");
+  const [destinationFilter, setDestinationFilter] = useState("");
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
   useEffect(() => {
-    fetchHistory()
-  }, [])
+    fetchHistory();
+  }, []);
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("/api/historico", { cache: "no-store" })
-      const data = await res.json()
-      setHistoryData(data)
+      const res = await fetch("/api/historico", { cache: "no-store" });
+      const data = await res.json();
+      setHistoryData(data);
     } catch (err) {
-      console.error("Erro ao carregar histórico:", err)
+      console.error("Erro ao carregar histórico:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const concluirSaida = async (caminhaoId: number) => {
     try {
       const res = await fetch(`/api/caminhoes/${caminhaoId}/concluir-saida`, {
         method: "PATCH",
-      })
+      });
 
-      const resultado = await res.json()
+      const resultado = await res.json();
 
       if (res.ok) {
         setSelectedRecord((prev) => ({
           ...prev,
           horaSaida: resultado.horaSaida,
           tempoLiberacaoMin: resultado.tempoLiberacaoMin,
-        }))
+        }));
 
         setHistoryData((prevData) =>
           prevData.map((item) =>
             item.caminhaoId === caminhaoId
-              ? { ...item, horaSaida: resultado.horaSaida, tempoLiberacaoMin: resultado.tempoLiberacaoMin }
+              ? {
+                  ...item,
+                  horaSaida: resultado.horaSaida,
+                  tempoLiberacaoMin: resultado.tempoLiberacaoMin,
+                }
               : item
           )
-        )
+        );
       } else {
-        console.error("Erro ao concluir saída", resultado)
+        console.error("Erro ao concluir saída", resultado);
       }
     } catch (err) {
-      console.error("Erro inesperado:", err)
+      console.error("Erro inesperado:", err);
     }
-  }
+  };
 
   const filteredData = historyData
     .filter((item) => item.status === "finalizado")
     .filter((item) => {
-      const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase())
-      const matchesDestination = destinationFilter && destinationFilter !== "all"
-        ? item.destination === destinationFilter
-        : true
-      return matchesPlate && matchesDestination
-    })
+      const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase());
+      const matchesDestination =
+        destinationFilter && destinationFilter !== "all"
+          ? item.destination === destinationFilter
+          : true;
+      return matchesPlate && matchesDestination;
+    });
 
   const openDetailsDialog = (record) => {
-    setSelectedRecord(record)
-    setDetailsDialogOpen(true)
-  }
+    setSelectedRecord(record);
+    setDetailsDialogOpen(true);
+  };
 
   const formatDateTime = (value) => {
-    return value ? new Date(value).toLocaleString() : "N/D"
-  }
+    return value ? new Date(value).toLocaleString() : "N/D";
+  };
 
   return (
     <Card>
@@ -94,6 +99,7 @@ export default function HistoryLog() {
         <CardTitle>Histórico de Descarregamentos</CardTitle>
         <CardDescription>Visualize e filtre o histórico de descarregamentos</CardDescription>
       </CardHeader>
+
       <CardContent>
         <div className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row">
@@ -135,7 +141,9 @@ export default function HistoryLog() {
                       <TableCell>{item.plate}</TableCell>
                       <TableCell>{formatDateTime(item.collectionDate)}</TableCell>
                       <TableCell>
-                        {item.tempoLiberacaoMin != null ? `${item.tempoLiberacaoMin} min` : "N/D"}
+                        {item.tempoLiberacaoMin != null
+                          ? `${item.tempoLiberacaoMin} min`
+                          : "N/D"}
                       </TableCell>
                       <TableCell>{item.destination}</TableCell>
                       <TableCell>
@@ -173,23 +181,64 @@ export default function HistoryLog() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes do Descarregamento</DialogTitle>
-            <DialogDescription>Informações completas do caminhão e operação</DialogDescription>
+            <DialogDescription>
+              Informações completas do caminhão e operação
+            </DialogDescription>
           </DialogHeader>
 
           {selectedRecord && (
             <div className="space-y-2">
-              <div><strong>ID:</strong> {selectedRecord.id}</div>
-              <div><strong>Placa:</strong> {selectedRecord.plate}</div>
-              <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
-              <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
-              <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
-              <div><strong>Tempo Liberação:</strong> {selectedRecord.tempoLiberacaoMin != null ? `${selectedRecord.tempoLiberacaoMin} min` : "N/D"}</div>
-              <div><strong>Destino:</strong> {selectedRecord.destination || "N/D"}</div>
-              <div><strong>Transportadora:</strong> {selectedRecord.transportadora}</div>
-              <div><strong>Observações:</strong> {selectedRecord.observations || "—"}</div>
+              <div>
+                <strong>ID:</strong> {selectedRecord.id}
+              </div>
+              <div>
+                <strong>Placa:</strong> {selectedRecord.plate}
+              </div>
+              <div>
+                <strong>Horário de chegada:</strong>{" "}
+                {formatDateTime(selectedRecord.entryDate)}
+              </div>
+              <div>
+                <strong>Horário da coleta:</strong>{" "}
+                {formatDateTime(selectedRecord.collectionDate)}
+              </div>
+              <div>
+                <strong>Horário de saída:</strong>{" "}
+                {formatDateTime(selectedRecord.horaSaida)}
+              </div>
+              <div>
+                <strong>Tempo total (entrada até saída):</strong>{" "}
+                {selectedRecord.tempoLiberacaoMin != null
+                  ? `${selectedRecord.tempoLiberacaoMin} min`
+                  : "N/D"}
+              </div>
+              <div>
+                <strong>Destino:</strong> {selectedRecord.destination || "N/D"}
+              </div>
+              <div>
+                <strong>Transportadora:</strong> {selectedRecord.transportadora}
+              </div>
+              <div>
+                <strong>Observações:</strong>{" "}
+                {selectedRecord.observations || "—"}
+              </div>
+
+              {selectedRecord.motivoLiberacao && (
+                <div className="border rounded-md p-2 bg-red-50 border-red-300 mt-2">
+                  <div className="text-sm text-red-800 font-semibold">
+                    Motivo da liberação sem descarregamento:
+                  </div>
+                  <div className="text-sm text-red-900 mt-1 italic">
+                    {selectedRecord.motivoLiberacao}
+                  </div>
+                </div>
+              )}
 
               {!selectedRecord.horaSaida && (
-                <Button onClick={() => concluirSaida(selectedRecord.caminhaoId)} className="mt-2">
+                <Button
+                  onClick={() => concluirSaida(selectedRecord.caminhaoId)}
+                  className="mt-4"
+                >
                   Concluir saída
                 </Button>
               )}
@@ -204,5 +253,5 @@ export default function HistoryLog() {
         </DialogContent>
       </Dialog>
     </Card>
-  )
+  );
 }

@@ -1,24 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card, CardContent, CardHeader, CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Truck, Clock, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import {
+  Truck, Clock, AlertTriangle, CheckCircle2, Info,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ParkingDashboard() {
@@ -30,16 +28,16 @@ export default function ParkingDashboard() {
   const [caixaSelecionada, setCaixaSelecionada] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [showLiberarModal, setShowLiberarModal] = useState(false);
+  const [motivoLiberacao, setMotivoLiberacao] = useState("");
 
   const fetchTrucks = async () => {
     try {
       const response = await fetch("/api/caminhoes");
       const data = await response.json();
-
       const filtered = data.filter((item: any) =>
         item.status !== "finalizado" && item.caixaId === null
       );
-
       const mappedData = filtered.map((item: any) => ({
         id: item.id,
         plate: item.placa,
@@ -50,7 +48,6 @@ export default function ParkingDashboard() {
         type: item.tipo ?? "Diversos",
         time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
       }));
-
       setTrucksData(mappedData);
     } catch (error) {
       console.error("Erro ao buscar caminhões:", error);
@@ -60,12 +57,10 @@ export default function ParkingDashboard() {
   useEffect(() => {
     fetchTrucks();
   }, []);
-
-  const openDetailsDialog = async (truck: any) => {
+ const openDetailsDialog = async (truck: any) => {
     setSelectedTruck(truck);
     setCaixaSelecionada(truck.destinoCaixaId ? String(truck.destinoCaixaId) : null);
     setDetailsDialogOpen(true);
-
     try {
       const response = await fetch("/api/caixas");
       const data = await response.json();
@@ -77,7 +72,6 @@ export default function ParkingDashboard() {
 
   const encaminharParaCaixa = async () => {
     if (!selectedTruck || !caixaSelecionada) return;
-
     try {
       const response = await fetch(`/api/caminhoes/${selectedTruck.id}/mover-para-caixa`, {
         method: "PATCH",
@@ -85,9 +79,7 @@ export default function ParkingDashboard() {
         credentials: "include",
         body: JSON.stringify({ caixaId: Number(caixaSelecionada) }),
       });
-
       const result = await response.json();
-
       if (!response.ok) {
         toast({
           title: "Erro ao encaminhar",
@@ -96,16 +88,55 @@ export default function ParkingDashboard() {
         });
         return;
       }
-
       toast({
         title: "Caminhão na fila!",
         description: "Caminhão aguardando vaga na caixa selecionada.",
       });
-
       setDetailsDialogOpen(false);
       fetchTrucks();
     } catch (error) {
       console.error("Erro ao mover caminhão:", error);
+    }
+  };
+
+  const liberarCaminhao = async () => {
+    if (!selectedTruck || motivoLiberacao.trim() === "") {
+      toast({
+        title: "Motivo obrigatório",
+        description: "Informe o motivo da liberação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/caminhoes/${selectedTruck.id}/liberar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ motivo: motivoLiberacao }),
+      });
+
+      if (!response.ok) {
+        toast({
+          title: "Erro ao liberar caminhão",
+          description: "Não foi possível concluir a operação.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Caminhão liberado",
+        description: "Movido para histórico com o motivo registrado.",
+      });
+
+      setShowLiberarModal(false);
+      setDetailsDialogOpen(false);
+      setMotivoLiberacao("");
+      fetchTrucks();
+    } catch (error) {
+      console.error("Erro ao liberar caminhão:", error);
     }
   };
 
@@ -127,12 +158,12 @@ export default function ParkingDashboard() {
 
   const getTruckBackgroundColor = (status: string) => {
     switch (status) {
-      case "approved": return "bg-gradient-to-br from-green-100 to-green-200 border-green-300";
-      case "in_progress": return "bg-gradient-to-br from-yellow-100 to-yellow-200 border-yellow-300";
-      case "incompatible": return "bg-gradient-to-br from-red-100 to-red-200 border-red-300";
-      case "rejected": return "bg-gradient-to-br from-gray-700 to-gray-800 border-gray-900 text-white";
+      case "approved": return "bg-green-100 border-green-300";
+      case "in_progress": return "bg-yellow-100 border-yellow-300";
+      case "incompatible": return "bg-red-100 border-red-300";
+      case "rejected": return "bg-gray-800 border-gray-900 text-white";
       case "waiting":
-      default: return "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300";
+      default: return "bg-blue-100 border-blue-300";
     }
   };
 
@@ -157,9 +188,9 @@ export default function ParkingDashboard() {
       default: return "Desconhecido";
     }
   };
-
   return (
     <div className="space-y-4">
+      {/* Filtros superiores */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -199,6 +230,7 @@ export default function ParkingDashboard() {
         </div>
       </div>
 
+      {/* Grid de caminhões */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -220,13 +252,17 @@ export default function ParkingDashboard() {
                   <div className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     <span className="font-bold">{truck.plate}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Badge variant="outline" className="w-fit font-medium text-sm">
-                      {truck.type}
-                    </Badge>
-                    {truck.box && <span className="text-xs font-medium">{truck.box}</span>}
-                  </div>
+                </div>
+		  <div className="flex flex-col gap-1">
+  		    {truck.type && truck.type !== "Diversos" && (
+    			<Badge variant="outline" className="w-fit font-medium text-sm">
+      			{truck.type}
+    			</Badge>
+  			)}
+  			{truck.box && (
+    			<span className="text-xs font-medium">{truck.box}</span>
+  			)}
+			</div>
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
@@ -248,6 +284,7 @@ export default function ParkingDashboard() {
         </CardContent>
       </Card>
 
+      {/* Modal de detalhes do caminhão */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -328,8 +365,8 @@ export default function ParkingDashboard() {
               </div>
 
               <div className="flex justify-between pt-2">
-                <Button variant="secondary" onClick={() => setDetailsDialogOpen(false)}>
-                  Fechar
+                <Button variant="destructive" onClick={() => setShowLiberarModal(true)}>
+                  Liberar caminhão
                 </Button>
                 <Button
                   onClick={() => {
@@ -350,6 +387,31 @@ export default function ParkingDashboard() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de liberação com motivo */}
+      <Dialog open={showLiberarModal} onOpenChange={setShowLiberarModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Liberar caminhão sem descarregar</DialogTitle>
+            <DialogDescription>Informe o motivo:</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="motivo">Motivo</Label>
+            <Textarea
+              id="motivo"
+              placeholder="Descreva o motivo da liberação..."
+              value={motivoLiberacao}
+              onChange={(e) => setMotivoLiberacao(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button variant="secondary" onClick={() => setShowLiberarModal(false)}>Cancelar</Button>
+            <Button onClick={liberarCaminhao}>Confirmar liberação</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

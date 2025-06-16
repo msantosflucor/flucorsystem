@@ -7,8 +7,7 @@ export async function GET() {
       where: {
         status: "finalizado",
         caminhao: {
-          status: "finalizado", // ✅ mantém esse filtro
-          // ❌ remove o filtro de horaSaida
+          status: "finalizado",
         },
       },
       include: {
@@ -19,20 +18,30 @@ export async function GET() {
       },
     });
 
-    const historico = analises.map((item) => ({
-      id: item.id.toString(),
-      caminhaoId: item.caminhaoId,
-      plate: item.caminhao?.placa || "N/A",
-      collectionDate: item.caminhao?.horaColeta || null,
-      horaSaida: item.caminhao?.horaSaida || null,
-      tempoLiberacaoMin: item.caminhao?.tempoLiberacaoMin ?? null,
-      destination: item.tanque || "N/D",
-      manual: item.caminhao?.aguardarNaCaixa || false,
-      observations: item.observacoes || "Sem observações",
-      transportadora: item.caminhao?.transportadora || "N/D",
-      entryDate: item.caminhao?.criadoEm || null,
-      status: item.status,
-    }));
+    const historico = analises.map((item) => {
+      const horaSaida = item.caminhao?.horaSaida;
+      const entrada = item.caminhao?.criadoEm;
+      const tempoLiberacaoMin =
+        horaSaida && entrada
+          ? Math.round((horaSaida.getTime() - entrada.getTime()) / 60000)
+          : null;
+
+      return {
+        id: item.id.toString(),
+        caminhaoId: item.caminhaoId,
+        plate: item.caminhao?.placa || "N/A",
+        collectionDate: item.caminhao?.horaColeta || null,
+        horaSaida,
+        tempoLiberacaoMin,
+        destination: item.tanque || "N/D",
+        manual: item.caminhao?.aguardarNaCaixa || false,
+        observations: item.observacoes || "Sem observações",
+        transportadora: item.caminhao?.transportadora || "N/D",
+        entryDate: entrada || null,
+        status: item.status,
+        motivoLiberacao: item.motivoLiberacaoSemDescarga || null,
+      };
+    });
 
     return NextResponse.json(historico);
   } catch (error) {
