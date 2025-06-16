@@ -72,7 +72,15 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(caminhoes);
+    const caminhoesComFlag = caminhoes.map((caminhao) => {
+      const ultimaAnalise = caminhao.analises[0];
+      return {
+        ...caminhao,
+        liberadaIncompativel: !!ultimaAnalise?.liberadaIncompativel,
+      };
+    });
+
+    return NextResponse.json(caminhoesComFlag);
   } catch (error) {
     console.error("Erro ao buscar caminhões:", error);
     return NextResponse.json(

@@ -47,6 +47,7 @@ export default function ParkingDashboard() {
         status: item.status ?? "waiting",
         type: item.tipo ?? "Diversos",
         time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
+        liberadaIncompativel: item.liberadaIncompativel,
       }));
       setTrucksData(mappedData);
     } catch (error) {
@@ -57,7 +58,10 @@ export default function ParkingDashboard() {
   useEffect(() => {
     fetchTrucks();
   }, []);
- const openDetailsDialog = async (truck: any) => {
+
+  const openDetailsDialog = async (truckId: number) => {
+    const truck = trucksData.find((t) => t.id === truckId);
+    if (!truck) return;
     setSelectedTruck(truck);
     setCaixaSelecionada(truck.destinoCaixaId ? String(truck.destinoCaixaId) : null);
     setDetailsDialogOpen(true);
@@ -188,101 +192,104 @@ export default function ParkingDashboard() {
       default: return "Desconhecido";
     }
   };
+
   return (
-    <div className="space-y-4">
-      {/* Filtros superiores */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Truck className="h-6 w-6" />
-            Estacionamento de Caminhões
-          </h2>
-          <p className="text-muted-foreground">Visualização dos caminhões no pátio</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="waiting">Aguardando</SelectItem>
-              <SelectItem value="in_progress">Em Análise</SelectItem>
-              <SelectItem value="approved">Liberado</SelectItem>
-              <SelectItem value="incompatible">Incompatível</SelectItem>
-              <SelectItem value="rejected">Recusado</SelectItem>
-            </SelectContent>
-          </Select>
+    <>
+      <div className="space-y-4">
+        {/* Filtros superiores */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Truck className="h-6 w-6" />
+              Estacionamento de Caminhões
+            </h2>
+            <p className="text-muted-foreground">Visualização dos caminhões no pátio</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="waiting">Aguardando</SelectItem>
+                <SelectItem value="in_progress">Em Análise</SelectItem>
+                <SelectItem value="approved">Liberado</SelectItem>
+                <SelectItem value="incompatible">Incompatível</SelectItem>
+                <SelectItem value="rejected">Recusado</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Filtrar por tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              <SelectItem value="Diversos">Diversos</SelectItem>
-              <SelectItem value="Oleoso">Oleoso</SelectItem>
-              <SelectItem value="Alcalino">Alcalino</SelectItem>
-              <SelectItem value="Ácidos">Ácidos</SelectItem>
-              <SelectItem value="Lodo">Lodo</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Filtrar por tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="Diversos">Diversos</SelectItem>
+                <SelectItem value="Oleoso">Oleoso</SelectItem>
+                <SelectItem value="Alcalino">Alcalino</SelectItem>
+                <SelectItem value="Ácidos">Ácidos</SelectItem>
+                <SelectItem value="Lodo">Lodo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
 
-      {/* Grid de caminhões */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Pátio de Caminhões</span>
-            <Badge variant="outline" className="font-normal">
-              {filteredTrucks.length} caminhões
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {filteredTrucks.map((truck) => (
-              <div
-                key={truck.id}
-                className={`relative rounded-md border p-3 ${getTruckBackgroundColor(truck.status)}`}
-              >
-                <div className="absolute top-2 right-2">{getTruckStatusIcon(truck.status)}</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
-                    <span className="font-bold">{truck.plate}</span>
-                </div>
-		  <div className="flex flex-col gap-1">
-  		    {truck.type && truck.type !== "Diversos" && (
-    			<Badge variant="outline" className="w-fit font-medium text-sm">
-      			{truck.type}
-    			</Badge>
-  			)}
-  			{truck.box && (
-    			<span className="text-xs font-medium">{truck.box}</span>
-  			)}
-			</div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{truck.time} min</span>
+        {/* Grid de caminhões */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Pátio de Caminhões</span>
+              <Badge variant="outline" className="font-normal">
+                {filteredTrucks.length} caminhões
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {filteredTrucks.map((truck) => (
+                <div
+                  key={truck.id}
+                  className={`relative rounded-md border p-3 ${getTruckBackgroundColor(truck.status)}`}
+                >
+                  <div className="absolute top-2 right-2">{getTruckStatusIcon(truck.status)}</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      <span className="font-bold">{truck.plate}</span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => openDetailsDialog(truck)}
-                    >
-                      <Info className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex flex-col gap-1">
+                      {truck.type && truck.type !== "Diversos" && (
+                        <Badge variant="outline" className="w-fit font-medium text-sm">
+                          {truck.type}
+                        </Badge>
+                      )}
+                      {truck.box && (
+                        <span className="text-xs font-medium">{truck.box}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>{truck.time} min</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => openDetailsDialog(truck.id)}
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Modal de detalhes do caminhão */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
@@ -370,6 +377,15 @@ export default function ParkingDashboard() {
                 </Button>
                 <Button
                   onClick={() => {
+                    console.log("DEBUG >> liberadaIncompativel:", selectedTruck.liberadaIncompativel);
+                    if (selectedTruck.liberadaIncompativel !== true) {
+                      toast({
+                        title: "Encaminhamento bloqueado",
+                        description: "Carga aguardando análise laboratorial.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
                     if (selectedTruck.status !== "approved") {
                       toast({
                         title: "Encaminhamento bloqueado",
@@ -414,6 +430,6 @@ export default function ParkingDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

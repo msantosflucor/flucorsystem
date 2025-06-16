@@ -19,6 +19,7 @@ import {
   Clock, FlaskConical, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LaboratoryAnalysis() {
   const [caminhoes, setCaminhoes] = useState<any[]>([]);
@@ -32,6 +33,7 @@ export default function LaboratoryAnalysis() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const router = useRouter();
+  const { toast } = useToast();
 
   const fetchCaminhoes = async () => {
     try {
@@ -40,6 +42,11 @@ export default function LaboratoryAnalysis() {
       setCaminhoes(data);
     } catch (err) {
       console.error("Erro ao buscar caminhões:", err);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar caminhões",
+        variant: "destructive",
+      });
     }
   };
 
@@ -62,14 +69,14 @@ export default function LaboratoryAnalysis() {
   const sample = caminhoes.find((c) => c.id === selectedId);
 
   const handleSelecionar = (id: number) => {
-  setSelectedId(id);
-  const selected = caminhoes.find(c => c.id === id);
-  const ultimaAnalise = selected?.analises?.[0];
+    setSelectedId(id);
+    const selected = caminhoes.find(c => c.id === id);
+    const ultimaAnalise = selected?.analises?.[0];
 
-  setStatus(ultimaAnalise?.status || "");
-  setTanque(ultimaAnalise?.tanque || "");
-  setObservacoes(ultimaAnalise?.observacoes || "");
-  setActiveTab("analysis");
+    setStatus(ultimaAnalise?.status || "");
+    setTanque(ultimaAnalise?.tanque || "");
+    setObservacoes(ultimaAnalise?.observacoes || "");
+    setActiveTab("analysis");
   };
 
   const openDetalhesDialog = (caminhao: any) => {
@@ -87,21 +94,39 @@ export default function LaboratoryAnalysis() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Erro ao registrar coleta");
+      
+      toast({
+        title: "Coleta registrada",
+        description: "Amostra coletada com sucesso",
+      });
+      
       await fetchCaminhoes();
     } catch (err) {
       console.error("Falha na coleta:", err);
-      alert("Erro ao registrar hora da coleta.");
+      toast({
+        title: "Erro na coleta",
+        description: "Não foi possível registrar a coleta.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSubmit = async () => {
     if (!selectedId || !status || !tanque) {
-      alert("Preencha todos os campos obrigatórios.");
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos antes de salvar.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (status === "incompatible" && !observacoes) {
-      alert("Observações obrigatórias para status incompatível.");
+      toast({
+        title: "Observações obrigatórias",
+        description: "Preencha as observações para análises incompatíveis.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -116,6 +141,11 @@ export default function LaboratoryAnalysis() {
 
       if (!res.ok) throw new Error("Falha ao salvar");
 
+      toast({
+        title: "Análise registrada",
+        description: "Dados da análise salvos com sucesso",
+      });
+
       await fetchCaminhoes();
       setSelectedId(null);
       setStatus("");
@@ -124,7 +154,11 @@ export default function LaboratoryAnalysis() {
       setActiveTab("pending");
     } catch (err) {
       console.error("Erro ao registrar análise:", err);
-      alert("Erro ao registrar análise.");
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a análise.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "FLUCOR System",
@@ -24,7 +25,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head />
-      <body className="bg-white text-black antialiased">{children}</body>
+      <body className="bg-white text-black antialiased">
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }
