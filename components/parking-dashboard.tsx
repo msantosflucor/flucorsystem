@@ -12,9 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -68,7 +65,15 @@ export default function ParkingDashboard() {
     try {
       const response = await fetch("/api/caixas");
       const data = await response.json();
-      setCaixasDisponiveis(data);
+
+      const caixasLimpas = data.map((caixa: any) => ({
+        id: caixa.id,
+        nome: typeof caixa.nome === "string" ? caixa.nome : JSON.stringify(caixa.nome),
+        status: typeof caixa.status === "string" ? caixa.status : JSON.stringify(caixa.status),
+      }));
+
+      console.log("CAIXAS FORMATADAS", caixasLimpas);
+      setCaixasDisponiveis(caixasLimpas);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
     }
@@ -206,33 +211,39 @@ export default function ParkingDashboard() {
             <p className="text-muted-foreground">Visualização dos caminhões no pátio</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="waiting">Aguardando</SelectItem>
-                <SelectItem value="in_progress">Em Análise</SelectItem>
-                <SelectItem value="approved">Liberado</SelectItem>
-                <SelectItem value="incompatible">Incompatível</SelectItem>
-                <SelectItem value="rejected">Recusado</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-[160px]">
+              <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status</label>
+              <select
+                id="status-filter"
+                className="w-full border px-3 py-2 rounded-md"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">Todos os status</option>
+                <option value="waiting">Aguardando</option>
+                <option value="in_progress">Em Análise</option>
+                <option value="approved">Liberado</option>
+                <option value="incompatible">Incompatível</option>
+                <option value="rejected">Recusado</option>
+              </select>
+            </div>
 
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="Diversos">Diversos</SelectItem>
-                <SelectItem value="Oleoso">Oleoso</SelectItem>
-                <SelectItem value="Alcalino">Alcalino</SelectItem>
-                <SelectItem value="Ácidos">Ácidos</SelectItem>
-                <SelectItem value="Lodo">Lodo</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-[160px]">
+              <label htmlFor="type-filter" className="block text-sm font-medium mb-1">Tipo</label>
+              <select
+                id="type-filter"
+                className="w-full border px-3 py-2 rounded-md"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">Todos os tipos</option>
+                <option value="Diversos">Diversos</option>
+                <option value="Oleoso">Oleoso</option>
+                <option value="Alcalino">Alcalino</option>
+                <option value="Ácidos">Ácidos</option>
+                <option value="Lodo">Lodo</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -291,13 +302,13 @@ export default function ParkingDashboard() {
         </Card>
       </div>
 
-      {/* Modal de detalhes do caminhão */}
+      {/* Modal de detalhes */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes do Caminhão</DialogTitle>
             <DialogDescription>
-              Informações detalhadas sobre o caminhão {selectedTruck?.plate}
+              {selectedTruck ? `Informações detalhadas sobre o caminhão ${selectedTruck.plate}` : "Carregando..."}
             </DialogDescription>
           </DialogHeader>
 
@@ -342,33 +353,37 @@ export default function ParkingDashboard() {
                   </div>
                 )}
 
-                <Select
-                  value={caixaSelecionada ?? ""}
-                  onValueChange={(novaCaixaId) => {
-                    if (
-                      selectedTruck.destinoCaixaId &&
-                      novaCaixaId !== String(selectedTruck.destinoCaixaId)
-                    ) {
-                      const confirmar = window.confirm("Certeza que deseja mudar a caixa direcionada?");
-                      if (!confirmar) return;
-                    }
-                    setCaixaSelecionada(novaCaixaId);
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione a caixa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {caixasDisponiveis.map((caixa: any) => (
-                      <SelectItem key={caixa.id} value={String(caixa.id)}>
-                        {caixa.nome}
-                        {caixa.status !== "livre" && (
-                          <Badge variant="destructive" className="ml-2">Ocupada</Badge>
-                        )}
-                      </SelectItem>
+                <div className="w-full">
+                  <label htmlFor="caixa" className="block text-sm font-medium mb-1">
+                    Selecionar Caixa
+                  </label>
+                  <select
+                    id="caixa"
+                    className="w-full border px-3 py-2 rounded-md"
+                    value={caixaSelecionada ?? ""}
+                    onChange={(e) => {
+                      const novaCaixaId = e.target.value;
+                      if (novaCaixaId === (caixaSelecionada ?? "")) return;
+                      
+                      if (selectedTruck?.destinoCaixaId && novaCaixaId !== String(selectedTruck.destinoCaixaId)) {
+                        const confirmar = window.confirm("Certeza que deseja mudar a caixa direcionada?");
+                        if (!confirmar) return;
+                      }
+                      
+                      setCaixaSelecionada(novaCaixaId);
+                    }}
+                  >
+                    <option value="">Selecione a caixa</option>
+                    {caixasDisponiveis.map((caixa) => (
+                      <option 
+                        key={caixa.id} 
+                        value={caixa.id}
+                      >
+                        {caixa.nome} {caixa.status !== "livre" && "(ocupada - em fila)"}
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-between pt-2">
@@ -377,15 +392,6 @@ export default function ParkingDashboard() {
                 </Button>
                 <Button
                   onClick={() => {
-                    console.log("DEBUG >> liberadaIncompativel:", selectedTruck.liberadaIncompativel);
-                    if (selectedTruck.liberadaIncompativel !== true) {
-                      toast({
-                        title: "Encaminhamento bloqueado",
-                        description: "Carga aguardando análise laboratorial.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
                     if (selectedTruck.status !== "approved") {
                       toast({
                         title: "Encaminhamento bloqueado",
@@ -406,7 +412,7 @@ export default function ParkingDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de liberação com motivo */}
+      {/* Modal de liberação */}
       <Dialog open={showLiberarModal} onOpenChange={setShowLiberarModal}>
         <DialogContent>
           <DialogHeader>
