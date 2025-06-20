@@ -94,12 +94,12 @@ export default function LaboratoryAnalysis() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Erro ao registrar coleta");
-      
+
       toast({
         title: "Coleta registrada",
         description: "Amostra coletada com sucesso",
       });
-      
+
       await fetchCaminhoes();
     } catch (err) {
       console.error("Falha na coleta:", err);
@@ -132,7 +132,7 @@ export default function LaboratoryAnalysis() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/analises", {
+      const res = await fetch("/api/laboratorio", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -194,7 +194,7 @@ export default function LaboratoryAnalysis() {
       <TabsContent value="pending">
         {(userRole === "SYSADMIN" || userRole === "QUIMICO") && (
           <div className="mb-4">
-            <Button variant="outline" onClick={() => router.push("/analises/incompativeis")}>
+            <Button variant="outline" onClick={() => router.push("/laboratorio/incompativeis")}>
               Ver Análises Incompatíveis
             </Button>
           </div>
@@ -325,6 +325,24 @@ export default function LaboratoryAnalysis() {
               <div><strong>Status:</strong> {statusLabel(selectedDetalhes.status)}</div>
               <div><strong>Tanque:</strong> {selectedDetalhes.analises?.[0]?.tanque || "—"}</div>
               <div><strong>Observações:</strong> {selectedDetalhes.analises?.[0]?.observacoes || "—"}</div>
+              {(() => {
+                const analises = selectedDetalhes.analises || [];
+                const analiseComJustificativa = analises
+                  .slice()
+                  .sort((a: any, b: any) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime())
+                  .find(
+                    (a: any) =>
+                      a.liberadaIncompativel === true &&
+                      !!a.justificativaLiberacaoIncompativel
+                  );
+
+                return analiseComJustificativa ? (
+                  <div>
+                    <strong>Liberado após incompatibilidade:</strong>{" "}
+                    {analiseComJustificativa.justificativaLiberacaoIncompativel}
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
 

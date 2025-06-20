@@ -27,11 +27,12 @@ export async function PATCH(req: NextRequest, context: any) {
       return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
     }
 
-    // Atualiza apenas o status do caminhão, sem definir horaSaida ainda
+    // Atualiza o status e registra como manual
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
         status: "finalizado",
+        manual: true, // ← IMPORTANTE
       },
     });
 

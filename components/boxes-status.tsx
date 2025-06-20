@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Clock, Truck, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,10 +25,12 @@ type Caixa = {
 
 interface BoxesStatusProps {
   caixas: Caixa[];
+  onAtualizarCaixas: () => Promise<void>;
 }
 
-export default function BoxesStatus({ caixas }: BoxesStatusProps) {
+export default function BoxesStatus({ caixas, onAtualizarCaixas }: BoxesStatusProps) {
   const { toast } = useToast();
+  const [caixasData, setCaixasData] = useState<Caixa[]>(caixas);
   const [atualizando, setAtualizando] = useState<number | null>(null);
 
   const liberarCaixa = async (caixaId: number) => {
@@ -37,7 +39,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
     try {
       const res = await fetch(`/api/caixas/${caixaId}/liberar`, {
         method: "PATCH",
-        credentials: "include", // ✅ ENVIA O COOKIE
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -58,7 +60,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
 
         const segundaResposta = await fetch(`/api/caixas/${caixaId}/liberar`, {
           method: "PATCH",
-          credentials: "include", // ✅ ENVIA O COOKIE TAMBÉM NA CONFIRMAÇÃO
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -77,7 +79,7 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
         });
       }
 
-      window.location.reload();
+      await onAtualizarCaixas(); // ✅ Atualiza pelo dashboard
     } catch (err: any) {
       console.error(err);
       toast({
@@ -90,9 +92,13 @@ export default function BoxesStatus({ caixas }: BoxesStatusProps) {
     }
   };
 
+  useEffect(() => {
+    setCaixasData(caixas);
+  }, [caixas]);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {caixas.map((caixa) => {
+      {caixasData.map((caixa) => {
         const corBorda =
           caixa.status === "ocupada" ? "border-red-500" : "border-green-500";
         const corFundo =

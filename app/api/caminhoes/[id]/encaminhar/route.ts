@@ -64,16 +64,19 @@ export async function PATCH(
       );
     }
 
-    // Encaminha o caminhão para a caixa (sem ocupar ainda)
-    await prisma.caminhao.update({
+    // ✅ Atualiza a relação E o campo manual
+    const caminhaoAtualizado = await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
         destinoCaixaId: caixa.id,
+        manual: true,
       },
     });
 
+    console.log("✅ Caminhão atualizado (encaminhamento manual):", caminhaoAtualizado);
+
     return NextResponse.json({
-      message: `Caminhão ${caminhao.placa} encaminhado para a caixa ${caixa.nome}.`,
+      message: `Caminhão ${caminhaoAtualizado.placa} encaminhado manualmente para a caixa ${caixa.nome}.`,
     });
   } catch (error) {
     console.error("Erro ao encaminhar caminhão:", error);

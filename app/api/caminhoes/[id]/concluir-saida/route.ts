@@ -16,20 +16,29 @@ export async function PATCH(
   try {
     const caminhao = await prisma.caminhao.findUnique({
       where: { id: caminhaoId },
+      select: {
+        id: true,
+        horaColeta: true,
+        criadoEm: true,
+        manual: true, // ✅ Garantir que o campo manual seja incluído na consulta
+        status: true,
+      },
     });
 
-    console.log("🚚 Caminhão retornado:", caminhao);
-
-    if (!caminhao?.horaColeta || isNaN(new Date(caminhao.horaColeta).getTime())) {
+    if (!caminhao) {
       return NextResponse.json(
-        { error: "Caminhão sem hora de coleta registrada." },
-        { status: 400 }
+        { error: "Caminhão não encontrado." },
+        { status: 404 }
       );
     }
 
     const agora = new Date();
+    const referenciaInicio = caminhao.horaColeta
+      ? new Date(caminhao.horaColeta)
+      : new Date(caminhao.criadoEm);
+
     const diffMin = Math.round(
-      (agora.getTime() - new Date(caminhao.horaColeta).getTime()) / 60000
+      (agora.getTime() - referenciaInicio.getTime()) / 60000
     );
 
     const atualizado = await prisma.caminhao.update({
@@ -37,12 +46,15 @@ export async function PATCH(
       data: {
         horaSaida: agora,
         tempoLiberacaoMin: diffMin,
+        status: "finalizado",
+        // Não altera o campo 'manual' - mantém o valor existente
       },
     });
 
     return NextResponse.json({
       horaSaida: atualizado.horaSaida,
       tempoLiberacaoMin: atualizado.tempoLiberacaoMin,
+      manual: atualizado.manual, // ✅ Retorna o status manual para confirmação
     });
   } catch (error) {
     console.error("Erro ao concluir saída:", error);

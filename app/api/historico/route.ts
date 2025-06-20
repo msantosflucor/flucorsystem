@@ -11,7 +11,19 @@ export async function GET() {
         },
       },
       include: {
-        caminhao: true,
+        caminhao: {
+          include: {
+            analises: {
+              orderBy: { criadoEm: "desc" },
+              select: {
+                id: true,
+                liberadaIncompativel: true,
+                justificativaLiberacaoIncompativel: true,
+                criadoEm: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         criadoEm: "desc",
@@ -19,27 +31,35 @@ export async function GET() {
     });
 
     const historico = analises.map((item) => {
-      const horaSaida = item.caminhao?.horaSaida;
-      const entrada = item.caminhao?.criadoEm;
+      const caminhao = item.caminhao;
+      const horaSaida = caminhao?.horaSaida;
+      const entrada = caminhao?.criadoEm;
       const tempoLiberacaoMin =
         horaSaida && entrada
           ? Math.round((horaSaida.getTime() - entrada.getTime()) / 60000)
           : null;
 
+      const todasAnalises = caminhao?.analises || [];
+
       return {
         id: item.id.toString(),
         caminhaoId: item.caminhaoId,
-        plate: item.caminhao?.placa || "N/A",
-        collectionDate: item.caminhao?.horaColeta || null,
+        plate: caminhao?.placa || "N/A",
+        collectionDate: caminhao?.horaColeta || null,
         horaSaida,
         tempoLiberacaoMin,
         destination: item.tanque || "N/D",
-        manual: item.caminhao?.aguardarNaCaixa || false,
+        manual: caminhao?.manual ?? false, // ✅ CORRIGIDO AQUI
         observations: item.observacoes || "Sem observações",
-        transportadora: item.caminhao?.transportadora || "N/D",
+        transportadora: caminhao?.transportadora || "N/D",
         entryDate: entrada || null,
         status: item.status,
         motivoLiberacao: item.motivoLiberacaoSemDescarga || null,
+        analises: todasAnalises.map(a => ({
+          liberadaIncompativel: a.liberadaIncompativel,
+          justificativaLiberacaoIncompativel: a.justificativaLiberacaoIncompativel,
+          dataAnalise: a.criadoEm
+        })),
       };
     });
 

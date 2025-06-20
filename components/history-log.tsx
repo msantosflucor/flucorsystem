@@ -15,16 +15,48 @@ import {
 } from "@/components/ui/dialog";
 import { Search, FileDown, Info } from "lucide-react";
 
+interface Analysis {
+  liberadaIncompativel: boolean;
+  justificativaLiberacaoIncompativel: string | null;
+  dataAnalise: Date;
+}
+
+interface HistoryRecord {
+  id: string;
+  caminhaoId: number;
+  plate: string;
+  collectionDate: Date | null;
+  horaSaida: Date | null;
+  tempoLiberacaoMin: number | null;
+  destination: string;
+  manual: boolean;
+  observations: string;
+  transportadora: string;
+  entryDate: Date | null;
+  status: string;
+  motivoLiberacao: string | null;
+  analises: Analysis[];
+}
+
 export default function HistoryLog() {
-  const [historyData, setHistoryData] = useState([]);
+  const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchPlate, setSearchPlate] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("");
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState<HistoryRecord | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
+
+    fetch("/api/auth/session", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        setUserRole(data?.user?.role ?? null);
+        console.log('User role:', data?.user?.role);
+      })
+      .catch(err => console.error("Erro ao obter sessão:", err));
   }, []);
 
   const fetchHistory = async () => {
@@ -49,7 +81,7 @@ export default function HistoryLog() {
 
       if (res.ok) {
         setSelectedRecord((prev) => ({
-          ...prev,
+          ...prev!,
           horaSaida: resultado.horaSaida,
           tempoLiberacaoMin: resultado.tempoLiberacaoMin,
         }));
@@ -84,13 +116,30 @@ export default function HistoryLog() {
       return matchesPlate && matchesDestination;
     });
 
-  const openDetailsDialog = (record) => {
+  const openDetailsDialog = (record: HistoryRecord) => {
+    console.log('Opening details for record:', record);
     setSelectedRecord(record);
     setDetailsDialogOpen(true);
   };
 
-  const formatDateTime = (value) => {
-    return value ? new Date(value).toLocaleString() : "N/D";
+  const formatDateTime = (value: Date | string | null) => {
+    if (!value) return "N/D";
+    const date = typeof value === 'string' ? new Date(value) : value;
+    return date.toLocaleString('pt-BR');
+  };
+
+  const hasLiberacaoIncompativel = (record: HistoryRecord) => {
+    return record.analises?.some((analise) => 
+      analise.liberadaIncompativel === true && 
+      analise.justificativaLiberacaoIncompativel
+    );
+  };
+
+  const getJustificativaLiberacao = (record: HistoryRecord) => {
+    const analiseComJustificativa = record.analises?.find((a) => 
+      a.liberadaIncompativel && a.justificativaLiberacaoIncompativel
+    );
+    return analiseComJustificativa?.justificativaLiberacaoIncompativel || "N/D";
   };
 
   return (
@@ -158,7 +207,12 @@ export default function HistoryLog() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => openDetailsDialog(item)}>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => openDetailsDialog(item)}
+                          title="Ver detalhes"
+                        >
                           <Info className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -178,7 +232,7 @@ export default function HistoryLog() {
       </CardContent>
 
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Descarregamento</DialogTitle>
             <DialogDescription>
@@ -187,67 +241,67 @@ export default function HistoryLog() {
           </DialogHeader>
 
           {selectedRecord && (
-            <div className="space-y-2">
-              <div>
-                <strong>ID:</strong> {selectedRecord.id}
-              </div>
-              <div>
-                <strong>Placa:</strong> {selectedRecord.plate}
-              </div>
-              <div>
-                <strong>Horário de chegada:</strong>{" "}
-                {formatDateTime(selectedRecord.entryDate)}
-              </div>
-              <div>
-                <strong>Horário da coleta:</strong>{" "}
-                {formatDateTime(selectedRecord.collectionDate)}
-              </div>
-              <div>
-                <strong>Horário de saída:</strong>{" "}
-                {formatDateTime(selectedRecord.horaSaida)}
-              </div>
-              <div>
-                <strong>Tempo total (entrada até saída):</strong>{" "}
-                {selectedRecord.tempoLiberacaoMin != null
-                  ? `${selectedRecord.tempoLiberacaoMin} min`
-                  : "N/D"}
-              </div>
-              <div>
-                <strong>Destino:</strong> {selectedRecord.destination || "N/D"}
-              </div>
-              <div>
-                <strong>Transportadora:</strong> {selectedRecord.transportadora}
-              </div>
-              <div>
-                <strong>Observações:</strong>{" "}
-                {selectedRecord.observations || "—"}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><strong>ID:</strong> {selectedRecord.id}</div>
+                <div><strong>Placa:</strong> {selectedRecord.plate}</div>
+                <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
+                <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+                <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
+                <div><strong>Tempo total:</strong> {selectedRecord.tempoLiberacaoMin != null ? `${selectedRecord.tempoLiberacaoMin} min` : "N/D"}</div>
+                <div><strong>Destino:</strong> {selectedRecord.destination}</div>
+                <div><strong>Transportadora:</strong> {selectedRecord.transportadora}</div>
               </div>
 
+              <div>
+                <strong>Observações:</strong> 
+                <div className="mt-1 p-2 bg-gray-50 rounded">
+                  {selectedRecord.observations || "—"}
+                </div>
+              </div>
+
+              {/* Justificativa de liberação por incompatibilidade */}
+              {(userRole === "SYSADMIN" || userRole === "QUIMICO") && 
+               hasLiberacaoIncompativel(selectedRecord) && (
+                <div className="border rounded-md p-3 bg-blue-50 border-blue-200">
+                  <div className="text-sm font-medium text-blue-800">
+                    Motivo da liberação por incompatibilidade:
+                  </div>
+                  <div className="mt-1 text-sm text-blue-900">
+                    {getJustificativaLiberacao(selectedRecord)}
+                  </div>
+                </div>
+              )}
+
+              {/* Motivo de liberação sem descarregamento */}
               {selectedRecord.motivoLiberacao && (
-                <div className="border rounded-md p-2 bg-red-50 border-red-300 mt-2">
-                  <div className="text-sm text-red-800 font-semibold">
+                <div className="border rounded-md p-3 bg-red-50 border-red-200">
+                  <div className="text-sm font-medium text-red-800">
                     Motivo da liberação sem descarregamento:
                   </div>
-                  <div className="text-sm text-red-900 mt-1 italic">
+                  <div className="mt-1 text-sm text-red-900">
                     {selectedRecord.motivoLiberacao}
                   </div>
                 </div>
               )}
 
+              {/* Botão para concluir saída (se ainda não saiu) */}
               {!selectedRecord.horaSaida && (
-                <Button
-                  onClick={() => concluirSaida(selectedRecord.caminhaoId)}
-                  className="mt-4"
-                >
-                  Concluir saída
-                </Button>
+                <div className="pt-4">
+                  <Button 
+                    onClick={() => concluirSaida(selectedRecord.caminhaoId)} 
+                    className="w-full md:w-auto"
+                  >
+                    Concluir saída
+                  </Button>
+                </div>
               )}
             </div>
           )}
 
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-end pt-4">
             <DialogClose asChild>
-              <Button>Fechar</Button>
+              <Button variant="outline">Fechar</Button>
             </DialogClose>
           </div>
         </DialogContent>

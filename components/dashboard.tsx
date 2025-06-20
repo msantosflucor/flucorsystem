@@ -8,13 +8,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
   Clock,
   Truck,
   FlaskConical,
@@ -23,7 +16,7 @@ import {
   MapPin,
   LogOut,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import BoxesStatus from "@/components/boxes-status";
 import TruckRegistration from "@/components/truck-registration";
 import LaboratoryAnalysis from "@/components/laboratory-analysis";
@@ -35,10 +28,13 @@ import FlucorLogo from "@/components/flucor-logo";
 import LineManagement from "@/components/line-management";
 import UnitSelector from "@/components/unit-selector";
 import ParkingDashboard from "@/components/parking-dashboard";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [currentUnitColor, setCurrentUnitColor] = useState(unitColor);
   const [caminhoes, setCaminhoes] = useState([]);
@@ -47,41 +43,46 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const [permissoes, setPermissoes] = useState<string[]>([]);
 
   useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
+  const fetchData = async () => {
+    try {
+      const [res1, res2, res3] = await Promise.all([
+        fetch("/api/caminhoes"),
+        fetch("/api/analises"),
+        fetch("/api/caixas"),
+      ]);
+
+      if (!res1.ok || !res2.ok || !res3.ok) {
+        throw new Error("Erro ao buscar dados.");
+      }
+
+      const data1 = await res1.json();
+      const data2 = await res2.json();
+      const data3 = await res3.json();
+
+      setCaminhoes([...data1]);
+      setAnalisesHoje([...data2]);
+      setCaixas([...data3]);
+    } catch (err) {
+      console.error("Erro ao buscar dados do dashboard:", err);
+      toast({
+        title: "Erro ao carregar dados",
+        description:
+          "Ocorreu um erro ao buscar dados. Verifique sua conexão ou tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
     const storedPermissoes =
       typeof window !== "undefined"
         ? JSON.parse(localStorage.getItem("permissoes") || "[]")
         : [];
     setPermissoes(storedPermissoes);
-
-    const fetchData = async () => {
-      try {
-        const [res1, res2, res3] = await Promise.all([
-          fetch("/api/caminhoes"),
-          fetch("/api/analises"),
-          fetch("/api/caixas"),
-        ]);
-
-        if (!res1.ok || !res2.ok || !res3.ok) {
-          throw new Error("Erro ao buscar dados.");
-        }
-
-        const data1 = await res1.json();
-        const data2 = await res2.json();
-        const data3 = await res3.json();
-
-        setCaminhoes(data1);
-        setAnalisesHoje(data2);
-        setCaixas(data3);
-      } catch (err) {
-        console.error("Erro ao buscar dados do dashboard:", err);
-        toast({
-          title: "Erro ao carregar dados",
-          description:
-            "Ocorreu um erro ao buscar dados. Verifique sua conexão ou tente novamente.",
-          variant: "destructive",
-        });
-      }
-    };
 
     fetchData();
   }, []);
@@ -116,8 +117,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
     : 0;
 
   const analisesHojeTotal = analisesHoje.filter(
-    (a) =>
-      new Date(a.criadoEm).toDateString() === new Date().toDateString()
+    (a) => new Date(a.criadoEm).toDateString() === new Date().toDateString()
   );
 
   const analisesLiberadas = analisesHojeTotal.filter(
@@ -170,7 +170,6 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
       </header>
 
       <Tabs
-        defaultValue="dashboard"
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-4"
@@ -219,10 +218,9 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {/* ... cards ... */}
             </div>
-
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-2">
-                <BoxesStatus caixas={caixas} />
+                <BoxesStatus caixas={caixas} onAtualizarCaixas={fetchData} />
               </div>
               <div className="space-y-4">
                 <PendingSamplesList />
@@ -257,7 +255,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
 
         {permissoes.includes("ESTACIONAMENTO") && (
           <TabsContent value="parking">
-            <ParkingDashboard />
+            <ParkingDashboard onAtualizarCaixas={fetchData} />
           </TabsContent>
         )}
       </Tabs>

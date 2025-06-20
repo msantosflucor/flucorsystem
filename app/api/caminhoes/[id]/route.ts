@@ -40,7 +40,7 @@ export async function GET(
   }
 }
 
-// ✏️ PATCH - Atualizar caminhão pelo ID
+// ✏ PATCH - Atualizar caminhão pelo ID
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
@@ -56,6 +56,14 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    const caminhaoAtual = await prisma.caminhao.findUnique({ where: { id } });
+
+    if (!caminhaoAtual) {
+      return NextResponse.json(
+        { error: "Caminhão não encontrado." },
+        { status: 404 }
+      );
+    }
 
     const {
       placa,
@@ -64,8 +72,12 @@ export async function PATCH(
       status,
       tipo,
       aguardarNaCaixa,
+      manual,
     } = body;
 
+    // Determina se é um movimento para caixa vindo do estacionamento
+    const isMovimentoParaCaixa = caixaId && caminhaoAtual.origem === 'estacionamento';
+    
     const caminhaoAtualizado = await prisma.caminhao.update({
       where: { id },
       data: {
@@ -75,6 +87,7 @@ export async function PATCH(
         status,
         tipo,
         aguardarNaCaixa,
+        manual: isMovimentoParaCaixa ? true : (manual ?? caminhaoAtual.manual),
       },
     });
 
@@ -88,7 +101,7 @@ export async function PATCH(
   }
 }
 
-// 🗑️ DELETE - Remover caminhão pelo ID
+// 🗑 DELETE - Remover caminhão pelo ID
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }

@@ -37,14 +37,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
     }
 
-    // Se a caixa está livre, o caminhão entra direto
     if (caixa.status === "livre") {
+      // Caminhão entra diretamente na caixa
       await prisma.$transaction([
         prisma.caminhao.update({
           where: { id: caminhaoId },
           data: {
             caixaId: caixa.id,
             destinoCaixaId: null,
+            manual: true, // Marca como manual
           },
         }),
         prisma.caixa.update({
@@ -53,32 +54,33 @@ export async function PATCH(
         }),
       ]);
 
-      // ✅ Registrar log
       await registrarLog(
         `Moveu caminhão ${caminhao.placa} diretamente para a caixa ${caixa.nome}`,
-        "Estacionamento"
+        caminhao.origem === "estacionamento" ? "Estacionamento" : "Sistema"
       );
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} movido diretamente para a caixa ${caixa.nome}.`,
+        manual: true,
       });
     } else {
-      // Se a caixa está ocupada, o caminhão entra na fila
+      // Caminhão vai para a fila (destinoCaixa)
       await prisma.caminhao.update({
         where: { id: caminhaoId },
         data: {
           destinoCaixaId: caixa.id,
+          manual: true, // Marca como manual mesmo na fila
         },
       });
 
-      // ✅ Registrar log
       await registrarLog(
         `Encaminhou caminhão ${caminhao.placa} para a fila da caixa ${caixa.nome}`,
-        "Estacionamento"
+        caminhao.origem === "estacionamento" ? "Estacionamento" : "Sistema"
       );
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} encaminhado para a fila da caixa ${caixa.nome}.`,
+        manual: true,
       });
     }
   } catch (error) {

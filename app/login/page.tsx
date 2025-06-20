@@ -40,7 +40,8 @@ export default function LoginPage() {
         description: `Bem-vindo, ${data.usuario.username}`,
       });
 
-      router.push("/dashboard");
+      // Redireciona para a rota de início que trata permissões
+      router.push("/inicio");
     } catch (error: any) {
       toast({
         title: "Erro ao entrar",

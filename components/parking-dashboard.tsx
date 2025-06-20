@@ -16,7 +16,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
-export default function ParkingDashboard() {
+interface ParkingDashboardProps {
+  onAtualizarCaixas: () => Promise<void>;
+}
+
+export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboardProps) {
   const { toast } = useToast();
   const [trucksData, setTrucksData] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<any>(null);
@@ -103,6 +107,7 @@ export default function ParkingDashboard() {
       });
       setDetailsDialogOpen(false);
       fetchTrucks();
+      await onAtualizarCaixas(); // 🔁 Atualiza as caixas no Dashboard
     } catch (error) {
       console.error("Erro ao mover caminhão:", error);
     }

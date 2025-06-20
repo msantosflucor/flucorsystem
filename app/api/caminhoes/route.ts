@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ GET - Listar todos os caminhões com análises e caixas incluídas
+// ✅ GET - Listar todos os caminhões com todas as análises ordenadas
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
@@ -67,16 +67,17 @@ export async function GET() {
         destinoCaixa: true,
         analises: {
           orderBy: { criadoEm: "desc" },
-          take: 1, // pega só a análise mais recente
         },
       },
     });
 
     const caminhoesComFlag = caminhoes.map((caminhao) => {
-      const ultimaAnalise = caminhao.analises[0];
+      const analiseComJustificativa = caminhao.analises.find(
+        (a) => a.liberadaIncompativel && !!a.justificativaLiberacaoIncompativel
+      );
       return {
         ...caminhao,
-        liberadaIncompativel: !!ultimaAnalise?.liberadaIncompativel,
+        liberadaIncompativel: !!analiseComJustificativa,
       };
     });
 

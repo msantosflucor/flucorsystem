@@ -3,19 +3,17 @@ import { jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
-// Cria uma chave secreta para o jose
 function getSecretKey() {
   return new TextEncoder().encode(JWT_SECRET);
 }
 
 const rotaParaModulo: Record<string, string> = {
-  "/dashboard": "DASHBOARD",
   "/laboratorio": "LABORATORIO",
   "/historico": "HISTORICO",
   "/linhas": "LINHAS",
   "/caixas": "CAIXAS",
   "/estacionamento": "ESTACIONAMENTO",
-  "/usuarios": "USUARIOS", // uso futuro
+  "/usuarios": "USUARIOS",
 };
 
 export async function middleware(req: NextRequest) {
@@ -30,29 +28,31 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const rotasPublicas = ["/login", "/api/authenticate"];
-  if (rotasPublicas.some((rota) => pathname.startsWith(rota))) {
+  // ✅ ROTA "/" ESTÁ LIBERADA
+  const rotasPublicas = ["/", "/login", "/api/authenticate", "/inicio", "/acesso-negado"];
+  if (rotasPublicas.some((rota) => pathname === rota || pathname.startsWith(rota))) {
     return NextResponse.next();
   }
 
   const token = req.cookies.get("token")?.value;
 
   if (!token) {
+    console.warn(`[MIDDLEWARE] Bloqueado: sem token | Rota: ${pathname}`);
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   try {
     const { payload }: any = await jwtVerify(token, getSecretKey());
 
-    // 🔐 Proteção exclusiva para /auth/usuarios (somente SYSADMIN)
     if (pathname.startsWith("/auth/usuarios") && payload.role !== "SYSADMIN") {
+      console.warn(
+        `[MIDDLEWARE] Bloqueado: acesso à /auth/usuarios negado para ${payload.username}`
+      );
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    // ✅ SYSADMIN pode tudo
     if (payload.role === "SYSADMIN") return NextResponse.next();
 
-    // 🔐 Verifica permissões baseadas no mapeamento de rota para módulo
     const rotaProtegida = Object.keys(rotaParaModulo).find((rota) =>
       pathname.startsWith(rota)
     );
@@ -65,9 +65,12 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
+    console.warn(
+      `[MIDDLEWARE] Bloqueado: ${payload.username} tentou acessar ${modulo} mas não tem permissão.`
+    );
     return NextResponse.redirect(new URL("/login", req.url));
   } catch (error) {
-    console.error("Erro ao verificar JWT:", error);
+    console.error("[MIDDLEWARE] Erro ao verificar JWT:", error);
     return NextResponse.redirect(new URL("/login", req.url));
   }
 }

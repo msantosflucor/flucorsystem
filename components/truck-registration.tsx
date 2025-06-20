@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Truck, CheckCircle2 } from "lucide-react";
+import { Truck, CheckCircle2, History } from "lucide-react";
 
 export default function TruckRegistration() {
   const { toast } = useToast();
@@ -30,6 +33,9 @@ export default function TruckRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [generatedId, setGeneratedId] = useState("");
+
+  const [historicoOpen, setHistoricoOpen] = useState(false);
+  const [ultimosCaminhoes, setUltimosCaminhoes] = useState<any[]>([]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -102,9 +108,24 @@ export default function TruckRegistration() {
     }
   };
 
+  const carregarUltimosCaminhoes = async () => {
+    try {
+      const res = await fetch("/api/caminhoes/ultimos");
+      const data = await res.json();
+      setUltimosCaminhoes(data);
+    } catch (err) {
+      console.error("Erro ao buscar histórico:", err);
+    }
+  };
+
+  const abrirHistorico = async () => {
+    await carregarUltimosCaminhoes();
+    setHistoricoOpen(true);
+  };
+
   return (
     <Card className="max-w-2xl mx-auto">
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-2">
         <CardTitle className="flex items-center gap-2">
           <Truck className="h-5 w-5" />
           Registro de Chegada de Caminhão
@@ -112,7 +133,12 @@ export default function TruckRegistration() {
         <CardDescription>
           Registre a chegada de um novo caminhão no estacionamento
         </CardDescription>
+        <Button variant="outline" onClick={abrirHistorico} className="mt-2 w-fit gap-2">
+          <History className="w-4 h-4" />
+          Histórico de Registros
+        </Button>
       </CardHeader>
+
       <CardContent>
         {isSuccess ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -207,6 +233,36 @@ export default function TruckRegistration() {
           </Button>
         </CardFooter>
       )}
+
+      <Dialog open={historicoOpen} onOpenChange={setHistoricoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Últimos 10 Caminhões Registrados</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto space-y-4">
+            {ultimosCaminhoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum registro encontrado.</p>
+            ) : (
+              ultimosCaminhoes.map((c, i) => (
+                <div key={i} className="border rounded-md p-3">
+                  <p><strong>Placa:</strong> {c.placa}</p>
+                  <p><strong>Transportadora:</strong> {c.transportadora}</p>
+                  <p><strong>Entrada:</strong> {new Date(c.criadoEm).toLocaleString()}</p>
+                  <p>
+                    <strong>Saída:</strong>{" "}
+                    {c.horaSaida
+                      ? new Date(c.horaSaida).toLocaleString()
+                      : <span className="text-yellow-600 font-semibold">Caminhão ainda está na fábrica</span>}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setHistoricoOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

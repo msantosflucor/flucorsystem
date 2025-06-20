@@ -38,6 +38,9 @@ model Caminhao {
   vestimentaIrregular  Boolean        @default(false)
   estadoFisico         String?
 
+  // ✅ Campo para diferenciar autorização manual/automática
+  manual               Boolean?       @default(false)
+
   analises             Analise[]
   caixa                Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
   destinoCaixa         Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
@@ -47,16 +50,17 @@ model Caminhao {
 }
 
 model Analise {
-  id                           Int            @id @default(autoincrement())
-  caminhaoId                   Int
-  status                       StatusCaminhao
-  tanque                       String
-  observacoes                  String
-  criadoEm                     DateTime       @default(now())
-  liberadaIncompativel         Boolean?       @default(false)
-  motivoLiberacaoSemDescarga   String?
+  id                                Int            @id @default(autoincrement())
+  caminhaoId                        Int
+  status                            StatusCaminhao
+  tanque                            String
+  observacoes                       String
+  criadoEm                          DateTime       @default(now())
+  liberadaIncompativel              Boolean?       @default(false)
+  justificativaLiberacaoIncompativel String?
+  motivoLiberacaoSemDescarga       String?
 
-  caminhao                     Caminhao       @relation(fields: [caminhaoId], references: [id])
+  caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
 
   @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
 }
@@ -88,15 +92,15 @@ model Linha {
   ultimaManutencao DateTime
   criadoEm         DateTime    @default(now())
   caixas           Caixa[]
-  manutencoes      ManutencaoLinha[] // ➕ Relacionamento com histórico
+  manutencoes      ManutencaoLinha[]
 }
 
 model ManutencaoLinha {
   id            Int      @id @default(autoincrement())
   linhaId       Int
   motivo        String
-  criadoEm      DateTime @default(now()) // Início da manutenção
-  finalizadoEm  DateTime?                 // Fim da manutenção
+  criadoEm      DateTime @default(now())
+  finalizadoEm  DateTime?
 
   linha         Linha    @relation(fields: [linhaId], references: [id])
 

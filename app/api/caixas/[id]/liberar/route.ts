@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, context: any) {
     const { confirmar } = await request.json().catch(() => ({ confirmar: null }));
 
     const caminhaoAtual = await prisma.caminhao.findFirst({
-      where: { caixaId },
+      where: { caixa: { id: caixaId } },
     });
 
     if (caminhaoAtual) {
@@ -23,8 +23,8 @@ export async function PATCH(request: NextRequest, context: any) {
         where: { id: caminhaoAtual.id },
         data: {
           status: "finalizado",
-          caixaId: null,
-          // ❌ REMOVIDO: horaSaida será registrada somente pelo botão no histórico
+          caixa: { disconnect: true },
+          manual: caminhaoAtual.manual ?? false,
         },
       });
 
@@ -60,7 +60,7 @@ export async function PATCH(request: NextRequest, context: any) {
 
     const proximo = await prisma.caminhao.findFirst({
       where: {
-        destinoCaixaId: caixaId,
+        destinoCaixa: { id: caixaId },
         status: { in: ["in_progress", "approved"] },
       },
       orderBy: { criadoEm: "asc" },
@@ -71,8 +71,9 @@ export async function PATCH(request: NextRequest, context: any) {
         await prisma.caminhao.update({
           where: { id: proximo.id },
           data: {
-            caixaId,
-            destinoCaixaId: null,
+            caixa: { connect: { id: caixaId } },
+            destinoCaixa: { disconnect: true },
+            manual: false, // ✅ força como automático
           },
         });
 
@@ -103,7 +104,6 @@ export async function PATCH(request: NextRequest, context: any) {
           proximo: {
             id: proximo.id,
             placa: proximo.placa,
-            origem: proximo.origem,
           },
         });
       }
@@ -113,7 +113,6 @@ export async function PATCH(request: NextRequest, context: any) {
         proximo: {
           id: proximo.id,
           placa: proximo.placa,
-          origem: proximo.origem,
         },
       });
     }

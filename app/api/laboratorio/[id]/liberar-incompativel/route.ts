@@ -11,18 +11,27 @@ export async function PATCH(
     return NextResponse.json({ error: "ID inválido." }, { status: 400 });
   }
 
+  const body = await req.json();
+  const { justificativa } = body;
+
+  if (!justificativa || !justificativa.trim()) {
+    return NextResponse.json(
+      { error: "Justificativa obrigatória." },
+      { status: 400 }
+    );
+  }
+
   try {
-    // Atualiza a análise como liberada e aprovada
     const analiseAtualizada = await prisma.analise.update({
       where: { id: analiseId },
       data: {
         liberadaIncompativel: true,
-        status: "approved", // ✅ libera a análise para o fluxo normal
+        status: "approved",
+        justificativaLiberacaoIncompativel: justificativa.trim(),
       },
       include: { caminhao: true },
     });
 
-    // Atualiza o status do caminhão vinculado (opcional, se necessário)
     await prisma.caminhao.update({
       where: { id: analiseAtualizada.caminhaoId },
       data: {
