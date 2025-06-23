@@ -92,7 +92,18 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         credentials: "include",
         body: JSON.stringify({ caixaId: Number(caixaSelecionada) }),
       });
+
       const result = await response.json();
+
+      if (response.status === 403) {
+        toast({
+          title: "Encaminhamento bloqueado",
+          description: result.error || "A linha da caixa está em manutenção.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (!response.ok) {
         toast({
           title: "Erro ao encaminhar",
@@ -101,6 +112,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         });
         return;
       }
+
       toast({
         title: "Caminhão na fila!",
         description: "Caminhão aguardando vaga na caixa selecionada.",

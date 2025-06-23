@@ -23,10 +23,24 @@ export async function PATCH(
 
     const caixa = await prisma.caixa.findUnique({
       where: { id: parseInt(caixaId) },
+      include: {
+        linha: true, // Inclui a linha associada
+      },
     });
+
+    console.log("📦 Caixa carregada:", caixa);
+    console.log("🔧 Linha associada:", caixa?.linha);
 
     if (!caixa) {
       return NextResponse.json({ error: "Caixa não encontrada." }, { status: 404 });
+    }
+
+    // ⚠ Verifica se a linha está em manutenção
+    if (caixa.linha?.emManutencao) {
+      return NextResponse.json(
+        { error: "A linha associada a esta caixa está em manutenção." },
+        { status: 403 }
+      );
     }
 
     const caminhao = await prisma.caminhao.findUnique({

@@ -72,7 +72,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // ✅ Identificar usuário logado via token
+    // Identificar usuário logado via token
     let usuarioId = null;
     let autor = "Desconhecido";
 
@@ -93,11 +93,12 @@ export async function PATCH(req: Request) {
         status,
         motivoManutencao: status === "maintenance" ? motivoManutencao : null,
         cargaAtual: status === "maintenance" ? 0 : undefined,
+        emManutencao: status === "maintenance", // Atualiza automaticamente
       },
       include: { caixas: true },
     });
 
-    // ✅ Se for colocada em manutenção, registra nova entrada e log
+    // Se for colocada em manutenção, registra nova entrada e log
     if (status === "maintenance" && motivoManutencao?.trim()) {
       await prisma.manutencaoLinha.create({
         data: {
@@ -113,7 +114,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // ✅ Se for reativada, finaliza o registro aberto e registra log
+    // Se for reativada, finaliza o registro aberto e registra log
     if (status === "active") {
       await prisma.manutencaoLinha.updateMany({
         where: {

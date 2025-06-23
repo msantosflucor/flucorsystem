@@ -175,7 +175,7 @@ export default function HistoryLog() {
                 <TableRow>
                   <TableHead>ID da Amostra</TableHead>
                   <TableHead>Placa</TableHead>
-                  <TableHead>Data/Hora Coleta</TableHead>
+                  <TableHead>Data/Hora Entrada</TableHead>
                   <TableHead>Tempo Liberação</TableHead>
                   <TableHead>Destino</TableHead>
                   <TableHead>Autorização</TableHead>

@@ -93,6 +93,8 @@ model Linha {
   criadoEm         DateTime    @default(now())
   caixas           Caixa[]
   manutencoes      ManutencaoLinha[]
+
+  emManutencao     Boolean     @default(false) // ✅ Adicionado
 }
 
 model ManutencaoLinha {
