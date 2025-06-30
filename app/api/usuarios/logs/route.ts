@@ -44,9 +44,10 @@ export async function GET(req: NextRequest) {
         return {
           id: log.id,
           usuarioId: log.usuarioId,
-          usuario: usuario?.username || null, // 🔄 aqui renomeado para compatibilidade
+          usuario: usuario?.username || null,
           autor: log.autor,
           acao: log.acao,
+          contexto: log.contexto ?? "—", // agora incluso
           detalhes: log.detalhes,
           criadoEm: log.criadoEm,
         };

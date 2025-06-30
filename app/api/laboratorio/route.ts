@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { StatusCaminhao } from "@prisma/client";
+import { StatusCaminhao, TipoResiduo } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-// ✅ GET: listar análises incompatíveis
+// GET: listar análises incompatíveis
 export async function GET() {
   try {
     const analises = await prisma.analise.findMany({
@@ -30,10 +30,10 @@ export async function GET() {
   }
 }
 
-// ✅ POST: registrar nova análise
+// POST: registrar nova análise (com tipoResiduo)
 export async function POST(req: NextRequest) {
   try {
-    const { caminhaoId, status, tanque, observacoes } = await req.json();
+    const { caminhaoId, status, tanque, observacoes, tipoResiduo } = await req.json();
 
     if (!caminhaoId || !status || !tanque) {
       return NextResponse.json({ error: "Dados obrigatórios faltando." }, { status: 400 });
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
         status: status as StatusCaminhao,
         tanque,
         observacoes,
+        tipoResiduo: tipoResiduo as TipoResiduo, // <-- incluído
       },
     });
 

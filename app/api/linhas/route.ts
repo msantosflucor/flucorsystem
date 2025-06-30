@@ -1,11 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { registrarLog } from "@/lib/log-usuario";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
+import { registrarLogComUsuario } from "@/lib/log-usuario-ext"; // ✅ novo import padronizado
 
 const TARGET = 50;
-const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
 // GET - Listar linhas com dados de caixas, carga e eficiência
 export async function GET() {
@@ -72,33 +69,18 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // Identificar usuário logado via token
-    let usuarioId = null;
-    let autor = "Desconhecido";
-
-    try {
-      const token = cookies().get("token")?.value;
-      if (token) {
-        const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
-        usuarioId = payload.id as number;
-        autor = payload.username as string;
-      }
-    } catch (err) {
-      console.warn("Falha ao identificar usuário para log");
-    }
-
     const linhaAtualizada = await prisma.linha.update({
       where: { id },
       data: {
         status,
         motivoManutencao: status === "maintenance" ? motivoManutencao : null,
         cargaAtual: status === "maintenance" ? 0 : undefined,
-        emManutencao: status === "maintenance", // Atualiza automaticamente
+        emManutencao: status === "maintenance",
       },
       include: { caixas: true },
     });
 
-    // Se for colocada em manutenção, registra nova entrada e log
+    // ✅ Log e manutenção ao entrar em manutenção
     if (status === "maintenance" && motivoManutencao?.trim()) {
       await prisma.manutencaoLinha.create({
         data: {
@@ -107,14 +89,14 @@ export async function PATCH(req: Request) {
         },
       });
 
-      await registrarLog(
-        `Colocou a linha "${linhaAtualizada.nome}" em manutenção`,
-        "LINHAS",
-        usuarioId
-      );
+      await registrarLogComUsuario({
+        acao: `Colocou a linha "${linhaAtualizada.nome}" em manutenção`,
+        contexto: "Gerenciamento de Linhas",
+        detalhes: `Motivo: ${motivoManutencao}`,
+      });
     }
 
-    // Se for reativada, finaliza o registro aberto e registra log
+    // ✅ Log ao sair da manutenção
     if (status === "active") {
       await prisma.manutencaoLinha.updateMany({
         where: {
@@ -126,11 +108,10 @@ export async function PATCH(req: Request) {
         },
       });
 
-      await registrarLog(
-        `Retirou a linha "${linhaAtualizada.nome}" da manutenção`,
-        "LINHAS",
-        usuarioId
-      );
+      await registrarLogComUsuario({
+        acao: `Retirou a linha "${linhaAtualizada.nome}" da manutenção`,
+        contexto: "Gerenciamento de Linhas",
+      });
     }
 
     const caixasIds = linhaAtualizada.caixas.map((caixa) => caixa.id);
@@ -173,3 +154,4 @@ export async function PATCH(req: Request) {
     );
   }
 }
+

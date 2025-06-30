@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -11,9 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Truck, CheckCircle2, History } from "lucide-react";
+import {
+  Truck, CheckCircle2, History, FileText,
+} from "lucide-react";
 
 export default function TruckRegistration() {
   const { toast } = useToast();
@@ -29,6 +33,7 @@ export default function TruckRegistration() {
   const [possuiEPI, setPossuiEPI] = useState(false);
   const [vestimentaIrregular, setVestimentaIrregular] = useState(false);
   const [estadoFisico, setEstadoFisico] = useState("");
+  const [carregamento, setCarregamento] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -67,6 +72,7 @@ export default function TruckRegistration() {
           possuiEPI,
           vestimentaIrregular,
           estadoFisico: estadoFisico || null,
+          carregamento,
         }),
       });
 
@@ -94,6 +100,7 @@ export default function TruckRegistration() {
         setPossuiEPI(false);
         setVestimentaIrregular(false);
         setEstadoFisico("");
+        setCarregamento(false);
         setGeneratedId("");
       }, 3000);
     } catch (error) {
@@ -133,10 +140,20 @@ export default function TruckRegistration() {
         <CardDescription>
           Registre a chegada de um novo caminhão no estacionamento
         </CardDescription>
-        <Button variant="outline" onClick={abrirHistorico} className="mt-2 w-fit gap-2">
-          <History className="w-4 h-4" />
-          Histórico de Registros
-        </Button>
+        <div className="flex gap-2 mt-2">
+          <Button variant="outline" onClick={abrirHistorico} className="gap-2">
+            <History className="w-4 h-4" />
+            Histórico de Registros
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => window.open("/api/caminhoes/relatorio", "_blank")}
+            className="gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            Gerar Relatório
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent>
@@ -206,6 +223,10 @@ export default function TruckRegistration() {
                 <div className="flex items-center gap-2">
                   <Checkbox checked={vestimentaIrregular} onCheckedChange={(val) => setVestimentaIrregular(Boolean(val))} />
                   <Label>Vestimenta Irregular</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={carregamento} onCheckedChange={(val) => setCarregamento(Boolean(val))} />
+                  <Label>Caminhão vazio - Carregamento</Label>
                 </div>
                 <div>
                   <Label>Estado Físico do Motorista</Label>

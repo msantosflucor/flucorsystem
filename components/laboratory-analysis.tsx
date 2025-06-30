@@ -21,6 +21,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
+type TipoResiduo = "Diversos" | "Oleoso" | "Alcalino" | "Acidos" | "Lodo" | "";
+
 export default function LaboratoryAnalysis() {
   const [caminhoes, setCaminhoes] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("pending");
@@ -29,6 +31,7 @@ export default function LaboratoryAnalysis() {
   const [status, setStatus] = useState("");
   const [tanque, setTanque] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [tipoResiduo, setTipoResiduo] = useState<TipoResiduo>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -76,6 +79,7 @@ export default function LaboratoryAnalysis() {
     setStatus(ultimaAnalise?.status || "");
     setTanque(ultimaAnalise?.tanque || "");
     setObservacoes(ultimaAnalise?.observacoes || "");
+    setTipoResiduo(ultimaAnalise?.tipoResiduo || "");
     setActiveTab("analysis");
   };
 
@@ -112,7 +116,7 @@ export default function LaboratoryAnalysis() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedId || !status || !tanque) {
+    if (!selectedId || !status || !tanque || !tipoResiduo) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos antes de salvar.",
@@ -136,7 +140,13 @@ export default function LaboratoryAnalysis() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caminhaoId: selectedId, status, tanque, observacoes }),
+        body: JSON.stringify({ 
+          caminhaoId: selectedId, 
+          status, 
+          tanque, 
+          observacoes,
+          tipoResiduo 
+        }),
       });
 
       if (!res.ok) throw new Error("Falha ao salvar");
@@ -151,6 +161,7 @@ export default function LaboratoryAnalysis() {
       setStatus("");
       setTanque("");
       setObservacoes("");
+      setTipoResiduo("");
       setActiveTab("pending");
     } catch (err) {
       console.error("Erro ao registrar análise:", err);
@@ -189,6 +200,9 @@ export default function LaboratoryAnalysis() {
       <TabsList>
         <TabsTrigger value="pending">Registros</TabsTrigger>
         <TabsTrigger value="analysis" disabled={!sample}>Registrar Análise</TabsTrigger>
+        <TabsTrigger value="carregamento" disabled={!selectedId}>
+          Registrar Carregamento
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="pending">
@@ -227,12 +241,15 @@ export default function LaboratoryAnalysis() {
                 </CardContent>
                 <CardFooter className="flex gap-2 flex-wrap">
                   <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>Detalhes</Button>
-                  {!c.horaColeta ? (
+                  {c.carregamento ? (
+                    <Button onClick={() => {
+                      setSelectedId(c.id);
+                      setActiveTab("carregamento");
+                    }}>Analisar</Button>
+                  ) : !c.horaColeta ? (
                     <Button variant="outline" onClick={() => coletarAmostra(c.id)}>Coletar</Button>
                   ) : (
-                    <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>
-                      Analisar
-                    </Button>
+                    <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>Analisar</Button>
                   )}
                 </CardFooter>
               </Card>
@@ -277,6 +294,22 @@ export default function LaboratoryAnalysis() {
                 <Input placeholder="TQ01, TQ02, etc." value={tanque} onChange={(e) => setTanque(e.target.value)} />
               </div>
 
+              <div className="space-y-2">
+                <Label>Tipo de Resíduo</Label>
+                <select
+                  className="w-full border p-2 rounded"
+                  value={tipoResiduo}
+                  onChange={(e) => setTipoResiduo(e.target.value as TipoResiduo)}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Diversos">Diversos</option>
+                  <option value="Oleoso">Oleoso</option>
+                  <option value="Alcalino">Alcalino</option>
+                  <option value="Acidos">Ácido</option>
+                  <option value="Lodo">Lodo</option>
+                </select>
+              </div>
+
               <div>
                 <Label>Observações</Label>
                 <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
@@ -309,6 +342,60 @@ export default function LaboratoryAnalysis() {
         )}
       </TabsContent>
 
+      <TabsContent value="carregamento">
+        {selectedId ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="h-5 w-5" />
+                Registrar Carregamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p>Deseja liberar ou negar o carregamento do caminhão <strong>{sample?.placa}</strong>?</p>
+              <div className="flex gap-4">
+                <Button
+                  className="bg-green-600 text-white"
+                  onClick={async () => {
+                    await fetch(`/api/laboratorio/${selectedId}/liberar-carregamento`, {
+                      method: "PATCH",
+                      credentials: "include",
+                    });
+                    toast({
+                      title: "Carregamento liberado",
+                      description: "O caminhão foi liberado para carregamento.",
+                    });
+                    fetchCaminhoes();
+                    setActiveTab("pending");
+                  }}
+                >
+                  Liberar Carregamento
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    await fetch(`/api/laboratorio/${selectedId}/negar-carregamento`, {
+                      method: "PATCH",
+                      credentials: "include",
+                    });
+                    toast({
+                      title: "Carregamento negado",
+                      description: "O caminhão foi recusado para carregamento.",
+                    });
+                    fetchCaminhoes();
+                    setActiveTab("pending");
+                  }}
+                >
+                  Negar Carregamento
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="text-muted-foreground">Nenhum caminhão selecionado.</p>
+        )}
+      </TabsContent>
+
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -324,6 +411,7 @@ export default function LaboratoryAnalysis() {
               <div><strong>Coleta:</strong> {selectedDetalhes.horaColeta ? new Date(selectedDetalhes.horaColeta).toLocaleString() : "Aguardando coleta"}</div>
               <div><strong>Status:</strong> {statusLabel(selectedDetalhes.status)}</div>
               <div><strong>Tanque:</strong> {selectedDetalhes.analises?.[0]?.tanque || "—"}</div>
+              <div><strong>Tipo de Resíduo:</strong> {selectedDetalhes.analises?.[0]?.tipoResiduo || "—"}</div>
               <div><strong>Observações:</strong> {selectedDetalhes.analises?.[0]?.observacoes || "—"}</div>
               {(() => {
                 const analises = selectedDetalhes.analises || [];

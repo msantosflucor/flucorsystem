@@ -2,8 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { StatusCaminhao } from "@prisma/client";
 import { registrarLog } from "@/lib/log-usuario";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 
-// ✅ POST - Cadastrar novo caminhão com campos estendidos
+const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
+
+// POST - Cadastrar novo caminhão com campos estendidos
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -18,6 +22,7 @@ export async function POST(req: NextRequest) {
       possuiEPI = false,
       vestimentaIrregular = false,
       estadoFisico = null,
+      carregamento = false, // novo campo
     } = await req.json();
 
     if (!placa || !motorista || !transportadora || !documentoMotorista) {
@@ -25,6 +30,19 @@ export async function POST(req: NextRequest) {
         { error: "Campos obrigatórios faltando." },
         { status: 400 }
       );
+    }
+
+    // Autenticação via cookie JWT
+    const cookiesStore = cookies();
+    const token = cookiesStore.get("token")?.value;
+
+    let usuarioId = null;
+    let autor = "Desconhecido";
+
+    if (token) {
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+      usuarioId = payload.id as number;
+      autor = payload.username as string;
     }
 
     const novoCaminhao = await prisma.caminhao.create({
@@ -42,10 +60,17 @@ export async function POST(req: NextRequest) {
         estadoFisico,
         status: StatusCaminhao.in_progress,
         criadoEm: new Date(),
+        carregamento, // incluído no banco
       },
     });
 
-    await registrarLog("Cadastrou caminhão", "Cadastro Caminhão");
+    // Log do usuário com autor e contexto corretos
+    await registrarLog({
+      usuarioId,
+      autor,
+      acao: "Cadastrou caminhão",
+      contexto: "Cadastro de Caminhões",
+    });
 
     return NextResponse.json(novoCaminhao, { status: 201 });
   } catch (error) {
@@ -57,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ GET - Listar todos os caminhões com todas as análises ordenadas
+// GET - Listar todos os caminhões com todas as análises ordenadas
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
@@ -67,6 +92,16 @@ export async function GET() {
         destinoCaixa: true,
         analises: {
           orderBy: { criadoEm: "desc" },
+          select: {
+            id: true,
+            status: true,
+            tanque: true,
+            observacoes: true,
+            criadoEm: true,
+            tipoResiduo: true,
+            liberadaIncompativel: true,
+            justificativaLiberacaoIncompativel: true,
+          },
         },
       },
     });

@@ -38,8 +38,13 @@ model Caminhao {
   vestimentaIrregular  Boolean        @default(false)
   estadoFisico         String?
 
-  // ✅ Campo para diferenciar autorização manual/automática
+  // Campo para diferenciar autorização manual/automática
   manual               Boolean?       @default(false)
+
+  // Campos para caminhões de carregamento
+  carregamento             Boolean        @default(false)
+  horaInicioCarregamento   DateTime?
+  horaFimCarregamento      DateTime?
 
   analises             Analise[]
   caixa                Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
@@ -59,6 +64,7 @@ model Analise {
   liberadaIncompativel              Boolean?       @default(false)
   justificativaLiberacaoIncompativel String?
   motivoLiberacaoSemDescarga       String?
+  tipoResiduo                       TipoResiduo?
 
   caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
 
@@ -93,8 +99,7 @@ model Linha {
   criadoEm         DateTime    @default(now())
   caixas           Caixa[]
   manutencoes      ManutencaoLinha[]
-
-  emManutencao     Boolean     @default(false) // ✅ Adicionado
+  emManutencao     Boolean     @default(false)
 }
 
 model ManutencaoLinha {

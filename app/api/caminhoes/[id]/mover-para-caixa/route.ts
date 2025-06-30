@@ -2,9 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { registrarLog } from "@/lib/log-usuario";
+import { registrarLogComUsuario } from "@/lib/log-usuario-ext";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 
-// PATCH → Mover caminhão manualmente para uma caixa (fila ou ocupação)
+const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -21,21 +24,25 @@ export async function PATCH(
       return NextResponse.json({ error: "ID da caixa não informado ou inválido." }, { status: 400 });
     }
 
+    const token = cookies().get("token")?.value;
+    let autor = "Desconhecido";
+    let usuarioId = null;
+
+    if (token) {
+      const { payload }: any = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+      autor = payload.username || "Sem nome";
+      usuarioId = payload.id;
+    }
+
     const caixa = await prisma.caixa.findUnique({
       where: { id: parseInt(caixaId) },
-      include: {
-        linha: true, // Inclui a linha associada
-      },
+      include: { linha: true },
     });
-
-    console.log("📦 Caixa carregada:", caixa);
-    console.log("🔧 Linha associada:", caixa?.linha);
 
     if (!caixa) {
       return NextResponse.json({ error: "Caixa não encontrada." }, { status: 404 });
     }
 
-    // ⚠ Verifica se a linha está em manutenção
     if (caixa.linha?.emManutencao) {
       return NextResponse.json(
         { error: "A linha associada a esta caixa está em manutenção." },
@@ -43,24 +50,16 @@ export async function PATCH(
       );
     }
 
-    const caminhao = await prisma.caminhao.findUnique({
-      where: { id: caminhaoId },
-    });
-
+    const caminhao = await prisma.caminhao.findUnique({ where: { id: caminhaoId } });
     if (!caminhao) {
       return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
     }
 
     if (caixa.status === "livre") {
-      // Caminhão entra diretamente na caixa
       await prisma.$transaction([
         prisma.caminhao.update({
           where: { id: caminhaoId },
-          data: {
-            caixaId: caixa.id,
-            destinoCaixaId: null,
-            manual: true, // Marca como manual
-          },
+          data: { caixaId: caixa.id, destinoCaixaId: null, manual: true },
         }),
         prisma.caixa.update({
           where: { id: caixa.id },
@@ -68,29 +67,27 @@ export async function PATCH(
         }),
       ]);
 
-      await registrarLog(
-        `Moveu caminhão ${caminhao.placa} diretamente para a caixa ${caixa.nome}`,
-        caminhao.origem === "estacionamento" ? "Estacionamento" : "Sistema"
-      );
+      await registrarLogComUsuario({
+        acao: "Movimentar caminhão para caixa",
+        contexto: "Estacionamento de Caminhões",
+        detalhes: `Moveu caminhão ${caminhao.placa} diretamente para a caixa ${caixa.nome}`,
+      });
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} movido diretamente para a caixa ${caixa.nome}.`,
         manual: true,
       });
     } else {
-      // Caminhão vai para a fila (destinoCaixa)
       await prisma.caminhao.update({
         where: { id: caminhaoId },
-        data: {
-          destinoCaixaId: caixa.id,
-          manual: true, // Marca como manual mesmo na fila
-        },
+        data: { destinoCaixaId: caixa.id, manual: true },
       });
 
-      await registrarLog(
-        `Encaminhou caminhão ${caminhao.placa} para a fila da caixa ${caixa.nome}`,
-        caminhao.origem === "estacionamento" ? "Estacionamento" : "Sistema"
-      );
+      await registrarLogComUsuario({
+        acao: "Encaminhar caminhão para fila",
+        contexto: "Estacionamento de Caminhões",
+        detalhes: `Encaminhou caminhão ${caminhao.placa} para a fila da caixa ${caixa.nome}`,
+      });
 
       return NextResponse.json({
         message: `Caminhão ${caminhao.placa} encaminhado para a fila da caixa ${caixa.nome}.`,

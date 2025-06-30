@@ -102,6 +102,37 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
     router.push("/login");
   };
 
+  const exportarRelatorioDashboard = async () => {
+    try {
+      const response = await fetch("/api/relatorios/dashboard-pdf");
+      if (!response.ok) {
+        throw new Error("Falha ao gerar o PDF.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `relatorio-dashboard-${new Date().toISOString().split("T")[0]}.pdf`;
+      link.click();
+
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Relatório gerado",
+        description: "O relatório foi baixado com sucesso.",
+      });
+    } catch (err) {
+      console.error("Erro ao exportar relatório:", err);
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o relatório.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const caminhoesAguardando = caminhoes.filter(
     (c) => !c.status || c.status === "waiting" || c.status === "in_progress"
   );
@@ -143,12 +174,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              toast({
-                title: "Relatório gerado",
-                description: "O relatório foi exportado com sucesso.",
-              })
-            }
+            onClick={exportarRelatorioDashboard}
           >
             Exportar Relatório
           </Button>

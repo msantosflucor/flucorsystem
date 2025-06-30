@@ -20,7 +20,7 @@ export async function PATCH(
         id: true,
         horaColeta: true,
         criadoEm: true,
-        manual: true, // ✅ Garantir que o campo manual seja incluído na consulta
+        manual: true,
         status: true,
       },
     });
@@ -47,14 +47,13 @@ export async function PATCH(
         horaSaida: agora,
         tempoLiberacaoMin: diffMin,
         status: "finalizado",
-        // Não altera o campo 'manual' - mantém o valor existente
       },
     });
 
     return NextResponse.json({
       horaSaida: atualizado.horaSaida,
       tempoLiberacaoMin: atualizado.tempoLiberacaoMin,
-      manual: atualizado.manual, // ✅ Retorna o status manual para confirmação
+      manual: atualizado.manual,
     });
   } catch (error) {
     console.error("Erro ao concluir saída:", error);

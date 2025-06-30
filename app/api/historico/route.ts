@@ -3,62 +3,61 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const analises = await prisma.analise.findMany({
+    const caminhoes = await prisma.caminhao.findMany({
       where: {
         status: "finalizado",
-        caminhao: {
-          status: "finalizado",
-        },
-      },
-      include: {
-        caminhao: {
-          include: {
-            analises: {
-              orderBy: { criadoEm: "desc" },
-              select: {
-                id: true,
-                liberadaIncompativel: true,
-                justificativaLiberacaoIncompativel: true,
-                criadoEm: true,
-              },
-            },
-          },
-        },
       },
       orderBy: {
         criadoEm: "desc",
       },
+      include: {
+        analises: {
+          orderBy: { criadoEm: "desc" },
+          select: {
+            id: true,
+            status: true,
+            liberadaIncompativel: true,
+            justificativaLiberacaoIncompativel: true,
+            criadoEm: true,
+            tanque: true,
+            observacoes: true,
+            tipoResiduo: true,
+            motivoLiberacaoSemDescarga: true,
+          },
+        },
+      },
     });
 
-    const historico = analises.map((item) => {
-      const caminhao = item.caminhao;
-      const horaSaida = caminhao?.horaSaida;
-      const entrada = caminhao?.criadoEm;
+    const historico = caminhoes.map((caminhao) => {
+      const analise = caminhao.analises[0];
+      const entrada = caminhao.criadoEm;
+      const saida = caminhao.horaSaida ?? null;
+
       const tempoLiberacaoMin =
-        horaSaida && entrada
-          ? Math.round((horaSaida.getTime() - entrada.getTime()) / 60000)
+        saida && entrada
+          ? Math.round((saida.getTime() - entrada.getTime()) / 60000)
           : null;
 
-      const todasAnalises = caminhao?.analises || [];
-
       return {
-        id: item.id.toString(),
-        caminhaoId: item.caminhaoId,
-        plate: caminhao?.placa || "N/A",
-        collectionDate: caminhao?.horaColeta || null,
-        horaSaida,
+        id: caminhao.id.toString(),
+        caminhaoId: caminhao.id,
+        plate: caminhao.placa,
+        collectionDate: caminhao.horaColeta || null,
+        horaSaida: saida,
         tempoLiberacaoMin,
-        destination: item.tanque || "N/D",
-        manual: caminhao?.manual ?? false, // ✅ CORRIGIDO AQUI
-        observations: item.observacoes || "Sem observações",
-        transportadora: caminhao?.transportadora || "N/D",
-        entryDate: entrada || null,
-        status: item.status,
-        motivoLiberacao: item.motivoLiberacaoSemDescarga || null,
-        analises: todasAnalises.map(a => ({
+        destination: analise?.tanque || "N/D",
+        manual: caminhao.manual ?? false,
+        observations: analise?.observacoes || "Sem observações",
+        transportadora: caminhao.transportadora,
+        entryDate: caminhao.criadoEm,
+        status: analise?.status || caminhao.status,
+        motivoLiberacao: analise?.motivoLiberacaoSemDescarga || null,
+        horaInicioCarregamento: caminhao.horaInicioCarregamento || null,
+        horaFimCarregamento: caminhao.horaFimCarregamento || null,
+        analises: caminhao.analises.map((a) => ({
           liberadaIncompativel: a.liberadaIncompativel,
           justificativaLiberacaoIncompativel: a.justificativaLiberacaoIncompativel,
-          dataAnalise: a.criadoEm
+          dataAnalise: a.criadoEm,
         })),
       };
     });

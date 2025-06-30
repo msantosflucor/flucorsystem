@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose,
 } from "@/components/ui/dialog";
 import { Search, FileDown, Info } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface Analysis {
   liberadaIncompativel: boolean;
@@ -27,6 +28,8 @@ interface HistoryRecord {
   plate: string;
   collectionDate: Date | null;
   horaSaida: Date | null;
+  horaInicioCarregamento: Date | null;
+  horaFimCarregamento: Date | null;
   tempoLiberacaoMin: number | null;
   destination: string;
   manual: boolean;
@@ -46,6 +49,7 @@ export default function HistoryLog() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<HistoryRecord | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isConcludingExit, setIsConcludingExit] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -54,24 +58,30 @@ export default function HistoryLog() {
       .then(res => res.json())
       .then(data => {
         setUserRole(data?.user?.role ?? null);
-        console.log('User role:', data?.user?.role);
       })
       .catch(err => console.error("Erro ao obter sessão:", err));
   }, []);
 
   const fetchHistory = async () => {
     try {
+      setLoading(true);
       const res = await fetch("/api/historico", { cache: "no-store" });
       const data = await res.json();
       setHistoryData(data);
     } catch (err) {
       console.error("Erro ao carregar histórico:", err);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar histórico",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const concluirSaida = async (caminhaoId: number) => {
+    setIsConcludingExit(true);
     try {
       const res = await fetch(`/api/caminhoes/${caminhaoId}/concluir-saida`, {
         method: "PATCH",
@@ -80,6 +90,11 @@ export default function HistoryLog() {
       const resultado = await res.json();
 
       if (res.ok) {
+        toast({
+          title: "Sucesso",
+          description: "Saída concluída com sucesso",
+        });
+        
         setSelectedRecord((prev) => ({
           ...prev!,
           horaSaida: resultado.horaSaida,
@@ -99,25 +114,34 @@ export default function HistoryLog() {
         );
       } else {
         console.error("Erro ao concluir saída", resultado);
+        toast({
+          title: "Erro",
+          description: resultado.error || "Falha ao concluir saída",
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Erro inesperado:", err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao concluir saída",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConcludingExit(false);
     }
   };
 
-  const filteredData = historyData
-    .filter((item) => item.status === "finalizado")
-    .filter((item) => {
-      const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase());
-      const matchesDestination =
-        destinationFilter && destinationFilter !== "all"
-          ? item.destination === destinationFilter
-          : true;
-      return matchesPlate && matchesDestination;
-    });
+  const filteredData = historyData.filter((item) => {
+    const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase());
+    const matchesDestination =
+      destinationFilter && destinationFilter !== "all"
+        ? item.destination === destinationFilter
+        : true;
+    return matchesPlate && matchesDestination;
+  });
 
   const openDetailsDialog = (record: HistoryRecord) => {
-    console.log('Opening details for record:', record);
     setSelectedRecord(record);
     setDetailsDialogOpen(true);
   };
@@ -188,7 +212,7 @@ export default function HistoryLog() {
                     <TableRow key={item.id}>
                       <TableCell>{item.id}</TableCell>
                       <TableCell>{item.plate}</TableCell>
-                      <TableCell>{formatDateTime(item.collectionDate)}</TableCell>
+                      <TableCell>{formatDateTime(item.entryDate)}</TableCell>
                       <TableCell>
                         {item.tempoLiberacaoMin != null
                           ? `${item.tempoLiberacaoMin} min`
@@ -196,7 +220,11 @@ export default function HistoryLog() {
                       </TableCell>
                       <TableCell>{item.destination}</TableCell>
                       <TableCell>
-                        {item.manual ? (
+                        {item.horaInicioCarregamento ? (
+                          <Badge variant="outline" className="border-blue-600 text-blue-700">
+                            Carregamento
+                          </Badge>
+                        ) : item.manual ? (
                           <Badge variant="outline" className="border-amber-500 text-amber-700">
                             Manual
                           </Badge>
@@ -234,7 +262,11 @@ export default function HistoryLog() {
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Detalhes do Descarregamento</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedRecord?.horaInicioCarregamento
+                ? "Detalhes do Carregamento"
+                : "Detalhes do Descarregamento"}
+            </DialogTitle>
             <DialogDescription>
               Informações completas do caminhão e operação
             </DialogDescription>
@@ -246,7 +278,20 @@ export default function HistoryLog() {
                 <div><strong>ID:</strong> {selectedRecord.id}</div>
                 <div><strong>Placa:</strong> {selectedRecord.plate}</div>
                 <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
-                <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+
+                {selectedRecord.horaInicioCarregamento ? (
+                  <div><strong>Horário da liberação:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+                ) : (
+                  <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+                )}
+
+                {selectedRecord.horaInicioCarregamento && (
+                  <div><strong>Início do carregamento:</strong> {formatDateTime(selectedRecord.horaInicioCarregamento)}</div>
+                )}
+                {selectedRecord.horaFimCarregamento && (
+                  <div><strong>Término do carregamento:</strong> {formatDateTime(selectedRecord.horaFimCarregamento)}</div>
+                )}
+
                 <div><strong>Horário de saída:</strong> {formatDateTime(selectedRecord.horaSaida)}</div>
                 <div><strong>Tempo total:</strong> {selectedRecord.tempoLiberacaoMin != null ? `${selectedRecord.tempoLiberacaoMin} min` : "N/D"}</div>
                 <div><strong>Destino:</strong> {selectedRecord.destination}</div>
@@ -260,8 +305,7 @@ export default function HistoryLog() {
                 </div>
               </div>
 
-              {/* Justificativa de liberação por incompatibilidade */}
-              {(userRole === "SYSADMIN" || userRole === "QUIMICO") && 
+              {(userRole === "SYSADMIN" || userRole === "QUIMICO") &&
                hasLiberacaoIncompativel(selectedRecord) && (
                 <div className="border rounded-md p-3 bg-blue-50 border-blue-200">
                   <div className="text-sm font-medium text-blue-800">
@@ -273,7 +317,6 @@ export default function HistoryLog() {
                 </div>
               )}
 
-              {/* Motivo de liberação sem descarregamento */}
               {selectedRecord.motivoLiberacao && (
                 <div className="border rounded-md p-3 bg-red-50 border-red-200">
                   <div className="text-sm font-medium text-red-800">
@@ -285,14 +328,14 @@ export default function HistoryLog() {
                 </div>
               )}
 
-              {/* Botão para concluir saída (se ainda não saiu) */}
-              {!selectedRecord.horaSaida && (
+              {selectedRecord?.status === "finalizado" && !selectedRecord.horaSaida && (
                 <div className="pt-4">
                   <Button 
                     onClick={() => concluirSaida(selectedRecord.caminhaoId)} 
                     className="w-full md:w-auto"
+                    disabled={isConcludingExit}
                   >
-                    Concluir saída
+                    {isConcludingExit ? "Processando..." : "Concluir saída"}
                   </Button>
                 </div>
               )}

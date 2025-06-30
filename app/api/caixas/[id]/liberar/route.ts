@@ -2,7 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { registrarLog } from "@/lib/log-usuario";
+import { registrarLogComUsuario } from "@/lib/log-usuario-ext";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
 export async function PATCH(request: NextRequest, context: any) {
   try {
@@ -13,6 +17,16 @@ export async function PATCH(request: NextRequest, context: any) {
 
     const caixaId = Number(id);
     const { confirmar } = await request.json().catch(() => ({ confirmar: null }));
+
+    const token = cookies().get("token")?.value;
+    let autor = "Desconhecido";
+    let usuarioId = null;
+
+    if (token) {
+      const { payload }: any = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+      autor = payload.username || "Sem nome";
+      usuarioId = payload.id;
+    }
 
     const caminhaoAtual = await prisma.caminhao.findFirst({
       where: { caixa: { id: caixaId } },
@@ -52,10 +66,11 @@ export async function PATCH(request: NextRequest, context: any) {
         });
       }
 
-      await registrarLog(
-        `Finalizou caminhão ${caminhaoAtual.placa || caminhaoAtual.id} ao liberar a caixa`,
-        "Caixas"
-      );
+      await registrarLogComUsuario({
+        acao: "Finalizar caminhão ao liberar caixa",
+        contexto: "Caixas",
+        detalhes: `Finalizou caminhão ${caminhaoAtual.placa || caminhaoAtual.id} ao liberar a caixa`,
+      });
     }
 
     const proximo = await prisma.caminhao.findFirst({
@@ -73,7 +88,7 @@ export async function PATCH(request: NextRequest, context: any) {
           data: {
             caixa: { connect: { id: caixaId } },
             destinoCaixa: { disconnect: true },
-            manual: false, // ✅ força como automático
+            manual: false,
           },
         });
 
@@ -82,10 +97,11 @@ export async function PATCH(request: NextRequest, context: any) {
           data: { status: "ocupada" },
         });
 
-        await registrarLog(
-          `Puxou automaticamente caminhão ${proximo.placa || proximo.id} para a caixa`,
-          "Caixas"
-        );
+        await registrarLogComUsuario({
+          acao: "Puxar caminhão automaticamente",
+          contexto: "Caixas",
+          detalhes: `Puxou automaticamente caminhão ${proximo.placa || proximo.id} para a caixa`,
+        });
 
         return NextResponse.json({
           message: `Caminhão ${proximo.placa || proximo.id} movido automaticamente para a caixa.`,

@@ -31,6 +31,8 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   const [typeFilter, setTypeFilter] = useState("all");
   const [showLiberarModal, setShowLiberarModal] = useState(false);
   const [motivoLiberacao, setMotivoLiberacao] = useState("");
+  const [analise, setAnalise] = useState<any>(null);
+  const [isCarregamento, setIsCarregamento] = useState(false);
 
   const fetchTrucks = async () => {
     try {
@@ -49,10 +51,19 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         type: item.tipo ?? "Diversos",
         time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
         liberadaIncompativel: item.liberadaIncompativel,
+        analises: item.analises || [],
+        carregamento: item.carregamento || false,
+        horaInicioCarregamento: item.horaInicioCarregamento || null,
+        horaFimCarregamento: item.horaFimCarregamento || null,
       }));
       setTrucksData(mappedData);
     } catch (error) {
       console.error("Erro ao buscar caminhões:", error);
+      toast({
+        title: "Erro ao carregar caminhões",
+        description: "Não foi possível atualizar a lista de caminhões",
+        variant: "destructive",
+      });
     }
   };
 
@@ -64,7 +75,12 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     const truck = trucksData.find((t) => t.id === truckId);
     if (!truck) return;
     setSelectedTruck(truck);
+    setIsCarregamento(truck.carregamento === true);
     setCaixaSelecionada(truck.destinoCaixaId ? String(truck.destinoCaixaId) : null);
+    
+    const ultimaAnalise = truck.analises?.[0] || null;
+    setAnalise(ultimaAnalise);
+    
     setDetailsDialogOpen(true);
     try {
       const response = await fetch("/api/caixas");
@@ -76,7 +92,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         status: typeof caixa.status === "string" ? caixa.status : JSON.stringify(caixa.status),
       }));
 
-      console.log("CAIXAS FORMATADAS", caixasLimpas);
       setCaixasDisponiveis(caixasLimpas);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
@@ -119,7 +134,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       });
       setDetailsDialogOpen(false);
       fetchTrucks();
-      await onAtualizarCaixas(); // 🔁 Atualiza as caixas no Dashboard
+      await onAtualizarCaixas();
     } catch (error) {
       console.error("Erro ao mover caminhão:", error);
     }
@@ -276,44 +291,58 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {filteredTrucks.map((truck) => (
-                <div
-                  key={truck.id}
-                  className={`relative rounded-md border p-3 ${getTruckBackgroundColor(truck.status)}`}
-                >
-                  <div className="absolute top-2 right-2">{getTruckStatusIcon(truck.status)}</div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      <span className="font-bold">{truck.plate}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {truck.type && truck.type !== "Diversos" && (
-                        <Badge variant="outline" className="w-fit font-medium text-sm">
-                          {truck.type}
+              {filteredTrucks.map((truck) => {
+                const isCarregamento = truck.carregamento === true;
+                return (
+                  <div
+                    key={truck.id}
+                    className={`relative rounded-md border p-3 ${
+                      isCarregamento 
+                        ? "bg-cyan-100 border-cyan-400" 
+                        : getTruckBackgroundColor(truck.status)
+                    }`}
+                  >
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                      {isCarregamento && (
+                        <Badge variant="secondary" className="text-xs bg-cyan-600 text-white">
+                          Carregamento
                         </Badge>
                       )}
-                      {truck.box && (
-                        <span className="text-xs font-medium">{truck.box}</span>
-                      )}
+                      {getTruckStatusIcon(truck.status)}
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{truck.time} min</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-5 w-5" />
+                        <span className="font-bold">{truck.plate}</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => openDetailsDialog(truck.id)}
-                      >
-                        <Info className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        {truck.type && truck.type !== "Diversos" && (
+                          <Badge variant="outline" className="w-fit font-medium text-sm">
+                            {truck.type}
+                          </Badge>
+                        )}
+                        {truck.box && (
+                          <span className="text-xs font-medium">{truck.box}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>{truck.time} min</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => openDetailsDialog(truck.id)}
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -346,7 +375,9 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tipo de Resíduo</div>
-                  <div className="font-medium">{selectedTruck.type}</div>
+                  <div className="font-medium">
+                    {analise?.tipoResiduo || "Aguardando análise"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tempo de Espera</div>
@@ -358,72 +389,170 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 </div>
               </div>
 
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Caixa direcionada</div>
-                {selectedTruck.destinoCaixaId ? (
-                  <div className="text-sm font-medium mb-2">
-                    Direcionado para a caixa ID {selectedTruck.destinoCaixaId}
+              {isCarregamento && (
+                <>
+                  <div>
+                    <div className="text-sm text-gray-500">Início Carregamento</div>
+                    <div className="font-medium">
+                      {selectedTruck.horaInicioCarregamento
+                        ? new Date(selectedTruck.horaInicioCarregamento).toLocaleString()
+                        : "Não iniciado"}
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-sm italic text-muted-foreground mb-2">
-                    Sem caixa direcionada
+                  <div>
+                    <div className="text-sm text-gray-500">Fim Carregamento</div>
+                    <div className="font-medium">
+                      {selectedTruck.horaFimCarregamento
+                        ? new Date(selectedTruck.horaFimCarregamento).toLocaleString()
+                        : "Não finalizado"}
+                    </div>
                   </div>
-                )}
+                </>
+              )}
 
-                <div className="w-full">
-                  <label htmlFor="caixa" className="block text-sm font-medium mb-1">
-                    Selecionar Caixa
-                  </label>
-                  <select
-                    id="caixa"
-                    className="w-full border px-3 py-2 rounded-md"
-                    value={caixaSelecionada ?? ""}
-                    onChange={(e) => {
-                      const novaCaixaId = e.target.value;
-                      if (novaCaixaId === (caixaSelecionada ?? "")) return;
-                      
-                      if (selectedTruck?.destinoCaixaId && novaCaixaId !== String(selectedTruck.destinoCaixaId)) {
-                        const confirmar = window.confirm("Certeza que deseja mudar a caixa direcionada?");
-                        if (!confirmar) return;
-                      }
-                      
-                      setCaixaSelecionada(novaCaixaId);
-                    }}
-                  >
-                    <option value="">Selecione a caixa</option>
-                    {caixasDisponiveis.map((caixa) => (
-                      <option 
-                        key={caixa.id} 
-                        value={caixa.id}
+              {!isCarregamento && (
+                <>
+                  <div>
+                    <div className="text-sm text-gray-500 mb-1">Caixa direcionada</div>
+                    {selectedTruck.destinoCaixaId ? (
+                      <div className="text-sm font-medium mb-2">
+                        Direcionado para a caixa ID {selectedTruck.destinoCaixaId}
+                      </div>
+                    ) : (
+                      <div className="text-sm italic text-muted-foreground mb-2">
+                        Sem caixa direcionada
+                      </div>
+                    )}
+
+                    <div className="w-full">
+                      <label htmlFor="caixa" className="block text-sm font-medium mb-1">
+                        Selecionar Caixa
+                      </label>
+                      <select
+                        id="caixa"
+                        className="w-full border px-3 py-2 rounded-md"
+                        value={caixaSelecionada ?? ""}
+                        onChange={(e) => {
+                          const novaCaixaId = e.target.value;
+                          if (novaCaixaId === (caixaSelecionada ?? "")) return;
+                          
+                          if (selectedTruck?.destinoCaixaId && novaCaixaId !== String(selectedTruck.destinoCaixaId)) {
+                            const confirmar = window.confirm("Certeza que deseja mudar a caixa direcionada?");
+                            if (!confirmar) return;
+                          }
+                          
+                          setCaixaSelecionada(novaCaixaId);
+                        }}
                       >
-                        {caixa.nome} {caixa.status !== "livre" && "(ocupada - em fila)"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                        <option value="">Selecione a caixa</option>
+                        {caixasDisponiveis.map((caixa) => (
+                          <option 
+                            key={caixa.id} 
+                            value={caixa.id}
+                          >
+                            {caixa.nome} {caixa.status !== "livre" && "(ocupada - em fila)"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <div className="flex justify-between pt-2">
-                <Button variant="destructive" onClick={() => setShowLiberarModal(true)}>
-                  Liberar caminhão
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedTruck.status !== "approved") {
-                      toast({
-                        title: "Encaminhamento bloqueado",
-                        description: getMotivoBloqueio(selectedTruck.status),
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    encaminharParaCaixa();
-                  }}
-                  disabled={!caixaSelecionada}
-                >
-                  Encaminhar para Caixa
-                </Button>
-              </div>
+              {isCarregamento ? (
+                <div className="flex justify-between pt-2">
+                  {!selectedTruck.horaInicioCarregamento ? (
+                    selectedTruck.status === "approved" ? (
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await fetch(`/api/caminhoes/${selectedTruck.id}/iniciar-carregamento`, {
+                              method: "PATCH",
+                              credentials: "include",
+                            });
+                            toast({
+                              title: "Carregamento iniciado",
+                              description: "Horário registrado com sucesso.",
+                            });
+                            setDetailsDialogOpen(false);
+                            fetchTrucks();
+                            await onAtualizarCaixas();
+                          } catch (error) {
+                            toast({
+                              title: "Erro ao iniciar carregamento",
+                              description: error.message,
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        Iniciar Carregamento
+                      </Button>
+                    ) : (
+                      <div className="text-sm text-yellow-700 bg-yellow-100 border border-yellow-300 rounded p-2">
+                        Aguardando liberação do laboratório.
+                      </div>
+                    )
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (!confirm("Confirmar finalização do carregamento?")) return;
+                        try {
+                          const response = await fetch(`/api/caminhoes/${selectedTruck.id}/finalizar-carregamento`, {
+                            method: "PATCH",
+                            credentials: "include",
+                          });
+
+                          if (!response.ok) {
+                            throw new Error("Failed to finalize loading");
+                          }
+
+                          toast({
+                            title: "Carregamento finalizado",
+                            description: "Caminhão enviado para o histórico.",
+                          });
+                          
+                          // Remove the truck from the list immediately
+                          setTrucksData(prev => prev.filter(t => t.id !== selectedTruck.id));
+                          setDetailsDialogOpen(false);
+                          await onAtualizarCaixas();
+                        } catch (error) {
+                          toast({
+                            title: "Erro ao finalizar carregamento",
+                            description: error.message,
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      Finalizar Carregamento
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex justify-between pt-2">
+                  <Button variant="destructive" onClick={() => setShowLiberarModal(true)}>
+                    Liberar caminhão
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedTruck.status !== "approved") {
+                        toast({
+                          title: "Encaminhamento bloqueado",
+                          description: getMotivoBloqueio(selectedTruck.status),
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      encaminharParaCaixa();
+                    }}
+                    disabled={!caixaSelecionada}
+                  >
+                    Encaminhar para Caixa
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
