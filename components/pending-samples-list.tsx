@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Truck, AlertTriangle, Info } from "lucide-react";
+import { Clock, Truck, AlertTriangle, Info, FlaskConical } from "lucide-react";
 import StatusIndicator from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 export default function PendingSamplesList() {
   const [caminhoes, setCaminhoes] = useState<any[]>([]);
@@ -38,7 +39,9 @@ export default function PendingSamplesList() {
   };
 
   const amostrasAtivas = caminhoes
-    .filter((c) => c.status === "waiting" || c.status === "in_progress")
+    .filter(
+      (c) => c.status === "waiting" || c.status === "in_progress"
+    )
     .map((c) => ({
       ...c,
       elapsedTime: getTimeElapsed(c.criadoEm),
@@ -89,13 +92,34 @@ export default function PendingSamplesList() {
                       <Truck className="h-3.5 w-3.5" />
                       <span>Caixa: {sample.caixa?.nome || "N/A"}</span>
                     </div>
+                    <div className="mt-1">
+                      <Badge
+                        variant="outline"
+                        className={
+                          sample.status === "waiting"
+                            ? "bg-blue-500 text-white"
+                            : "bg-yellow-500 text-white"
+                        }
+                      >
+                        {sample.status === "waiting"
+                          ? "Aguardando Coleta"
+                          : "Em Análise"}
+                      </Badge>
+                    </div>
                   </div>
+
                   <StatusIndicator status={sample.status} size="small" />
                 </div>
+
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="text-sm">
-                    {sample.origem ? `Origem: ${sample.origem}` : "Origem: N/A"}
+                  <div className="text-sm text-gray-600">
+                    Entrada:{" "}
+                    {new Date(sample.criadoEm).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
+
                   <div className="flex items-center gap-2">
                     <div
                       className={`flex items-center gap-1 text-sm ${
@@ -132,7 +156,7 @@ export default function PendingSamplesList() {
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <strong>ID:</strong> {selectedSample.id}
               </div>
@@ -140,13 +164,14 @@ export default function PendingSamplesList() {
                 <strong>Placa:</strong> {selectedSample.placa}
               </div>
               <div>
-                <strong>Origem:</strong> {selectedSample.origem || "N/A"}
+                <strong>Transportadora:</strong>{" "}
+                {selectedSample.transportadora || "N/A"}
               </div>
               <div>
                 <strong>Caixa:</strong> {selectedSample.caixa?.nome || "N/A"}
               </div>
               <div>
-                <strong>Data de Cadastro:</strong>{" "}
+                <strong>Hora de Entrada:</strong>{" "}
                 {new Date(selectedSample.criadoEm).toLocaleString("pt-BR")}
               </div>
               <div className="flex items-center gap-1">

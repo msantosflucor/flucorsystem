@@ -5,6 +5,7 @@ import { jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
+// SYSADMIN ou LOGISTICA
 async function autenticarViaCookie(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   if (!token) return null;
@@ -14,14 +15,14 @@ async function autenticarViaCookie(req: NextRequest) {
       token,
       new TextEncoder().encode(JWT_SECRET)
     );
-    return payload?.role === "SYSADMIN" ? payload : null;
+    return ["SYSADMIN", "LOGISTICA"].includes(payload?.role) ? payload : null;
   } catch (error) {
     console.error("Token inválido:", error);
     return null;
   }
 }
 
-// ✅ POST - Criar novo usuário
+// POST - Criar novo usuário
 export async function POST(req: NextRequest) {
   try {
     const admin = await autenticarViaCookie(req);
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ GET - Listar usuários
+// GET - Listar usuários
 export async function GET(req: NextRequest) {
   try {
     const admin = await autenticarViaCookie(req);
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ✅ PATCH - Atualizar dados e permissões de usuário
+// PATCH - Atualizar dados e permissões de usuário
 export async function PATCH(req: NextRequest) {
   try {
     const admin = await autenticarViaCookie(req);
@@ -165,7 +166,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ✅ DELETE - Excluir usuário
+// DELETE - Excluir usuário
 export async function DELETE(req: NextRequest) {
   try {
     const admin = await autenticarViaCookie(req);

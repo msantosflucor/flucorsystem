@@ -7,17 +7,18 @@ type StatusType =
   | "rejected"
   | "free"
   | "pending"
-  | "maintenance";
+  | "maintenance"
+  | "waiting"; // <- novo status
 
 interface StatusIndicatorProps {
-  status?: StatusType; // Agora pode ser opcional para evitar quebra
+  status?: StatusType;
   size?: "small" | "medium" | "large";
   showLabel?: boolean;
   className?: string;
 }
 
 export default function StatusIndicator({
-  status = "pending", // Define um padrão seguro
+  status = "pending",
   size = "medium",
   showLabel = true,
   className,
@@ -94,6 +95,14 @@ export default function StatusIndicator({
       pulse: "animate-pulse-subtle",
       text: "text-purple-700",
       label: "MANUTENÇÃO",
+    },
+    waiting: {
+      bg: "bg-gradient-to-r from-sky-400 to-sky-500",
+      border: "border-sky-600",
+      shadow: "shadow-md shadow-sky-200",
+      pulse: "animate-pulse-subtle",
+      text: "text-sky-700",
+      label: "AGUARDANDO COLETA",
     },
   };
 

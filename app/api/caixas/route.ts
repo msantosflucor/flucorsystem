@@ -35,7 +35,7 @@ export async function GET() {
           caminhaoId = caminhao?.id || null;
         }
 
-        // ✅ Caminhões na fila aguardando essa caixa
+        // Caminhões na fila aguardando essa caixa
         const filaCaminhoes = await prisma.caminhao.findMany({
           where: {
             caixaId: null,
@@ -66,7 +66,7 @@ export async function GET() {
             : null,
           caminhaoPlaca,
           caminhaoId,
-          fila, // ✅ nova propriedade com a fila de caminhões
+          fila, // nova propriedade com a fila de caminhões
           criadoEm: caixa.criadoEm,
         };
       })

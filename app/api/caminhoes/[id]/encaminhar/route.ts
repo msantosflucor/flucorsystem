@@ -64,7 +64,7 @@ export async function PATCH(
       );
     }
 
-    // ✅ Atualiza a relação E o campo manual
+    // Atualiza a relação E o campo manual
     const caminhaoAtualizado = await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
@@ -73,7 +73,7 @@ export async function PATCH(
       },
     });
 
-    console.log("✅ Caminhão atualizado (encaminhamento manual):", caminhaoAtualizado);
+    console.log("Caminhão atualizado (encaminhamento manual):", caminhaoAtualizado);
 
     return NextResponse.json({
       message: `Caminhão ${caminhaoAtualizado.placa} encaminhado manualmente para a caixa ${caixa.nome}.`,

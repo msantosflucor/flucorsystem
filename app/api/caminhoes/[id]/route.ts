@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-// 🔍 GET - Obter caminhão pelo ID
+// GET - Obter caminhão pelo ID
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
@@ -40,7 +40,7 @@ export async function GET(
   }
 }
 
-// ✏ PATCH - Atualizar caminhão pelo ID
+// PATCH - Atualizar caminhão pelo ID
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
@@ -101,7 +101,7 @@ export async function PATCH(
   }
 }
 
-// 🗑 DELETE - Remover caminhão pelo ID
+// DELETE - Remover caminhão pelo ID
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }

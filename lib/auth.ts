@@ -14,7 +14,11 @@ export async function getUsuarioAutenticado(req: Request): Promise<{ id: number 
     if (!token) return null;
 
     const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
-    return { id: Number(payload.sub) };
+
+    const userId = Number((payload as any).sub || (payload as any).id);
+    if (isNaN(userId)) return null;
+
+    return { id: userId };
   } catch {
     return null;
   }

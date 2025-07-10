@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { useToast } from "@/hooks/use-toast";
 import { Settings } from "lucide-react";
 import StatusIndicator from "@/components/status-indicator";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoBase64 from "@/lib/logo-base64-validado";
 
 interface Linha {
   id: number;
@@ -96,26 +99,104 @@ export default function LineManagement() {
     }
   };
 
+  const gerarRelatorioLinhasPDF = async () => {
+    try {
+      const res = await fetch("/api/linhas/historico", { cache: "no-store" });
+      if (!res.ok) throw new Error("Falha ao carregar histórico");
+      
+      const linhas = await res.json();
+
+      const doc = new jsPDF();
+      const agora = new Date();
+      const dataHora = agora.toLocaleString("pt-BR");
+
+      doc.addImage(logoBase64, "PNG", 10, 10, 60, 18);
+      doc.setFontSize(14);
+      doc.text("Relatório de Manutenções de Linhas", 75, 20);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${dataHora}`, 75, 26);
+
+      let y = 40;
+
+      for (const linha of linhas) {
+        doc.setFontSize(12);
+        doc.setTextColor(26, 64, 108);
+        doc.text(`Linha: ${linha.nome}`, 14, y);
+        y += 6;
+
+        if (!linha.manutencoes || linha.manutencoes.length === 0) {
+          doc.setFontSize(10);
+          doc.setTextColor(100);
+          doc.text("Sem registros de manutenção.", 16, y);
+          y += 10;
+          continue;
+        }
+
+        const rows = linha.manutencoes.map((m: any) => [
+          m.motivo || "N/D",
+          new Date(m.criadoEm).toLocaleString("pt-BR"),
+          m.finalizadoEm
+            ? new Date(m.finalizadoEm).toLocaleString("pt-BR")
+            : "Ainda em manutenção",
+        ]);
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Motivo", "Início", "Término"]],
+          body: rows,
+          styles: { fontSize: 9 },
+          headStyles: {
+            fillColor: [26, 64, 108],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+          },
+          margin: { left: 14, right: 14 },
+        });
+
+        y = doc.lastAutoTable.finalY + 10;
+      }
+
+      doc.save(`relatorio-linhas-${agora.getTime()}.pdf`);
+      
+      toast({
+        title: "Relatório gerado",
+        description: "O relatório em PDF foi baixado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao gerar relatório:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao gerar relatório em PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const totalLines = lines.length;
   const activeLines = lines.filter((line) => line.status === "active").length;
   const maintenanceLines = lines.filter((line) => line.status === "maintenance").length;
 
   return (
     <div className="space-y-6">
-      {/* Cards Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader><CardTitle>Total de Linhas</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{totalLines}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Linhas Ativas</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{activeLines}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Em Manutenção</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-bold">{maintenanceLines}</CardContent>
-        </Card>
+      {/* Botão de relatório e Cards Resumo */}
+      <div className="flex justify-between items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+          <Card>
+            <CardHeader><CardTitle>Total de Linhas</CardTitle></CardHeader>
+            <CardContent className="text-2xl font-bold">{totalLines}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Linhas Ativas</CardTitle></CardHeader>
+            <CardContent className="text-2xl font-bold">{activeLines}</CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Em Manutenção</CardTitle></CardHeader>
+            <CardContent className="text-2xl font-bold">{maintenanceLines}</CardContent>
+          </Card>
+        </div>
+        <Button onClick={gerarRelatorioLinhasPDF} className="ml-4">
+          Gerar Relatório PDF
+        </Button>
       </div>
 
       {/* Cards de linhas */}

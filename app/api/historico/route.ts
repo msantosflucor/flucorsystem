@@ -42,6 +42,7 @@ export async function GET() {
         id: caminhao.id.toString(),
         caminhaoId: caminhao.id,
         plate: caminhao.placa,
+        motorista: caminhao.motorista ?? "N/D", // ✅ Adicionado aqui
         collectionDate: caminhao.horaColeta || null,
         horaSaida: saida,
         tempoLiberacaoMin,

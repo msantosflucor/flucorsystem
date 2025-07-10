@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Search, FileDown, Info } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoBase64 from "@/lib/logo-base64-validado";
 
 interface Analysis {
   liberadaIncompativel: boolean;
@@ -26,6 +29,7 @@ interface HistoryRecord {
   id: string;
   caminhaoId: number;
   plate: string;
+  motorista: string;
   collectionDate: Date | null;
   horaSaida: Date | null;
   horaInicioCarregamento: Date | null;
@@ -50,6 +54,7 @@ export default function HistoryLog() {
   const [selectedRecord, setSelectedRecord] = useState<HistoryRecord | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isConcludingExit, setIsConcludingExit] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -132,6 +137,99 @@ export default function HistoryLog() {
     }
   };
 
+  const desfazerFinalizacao = async (caminhaoId: number) => {
+    setIsUndoing(true);
+    try {
+      console.log("[FRONT] Iniciando desfazer finalização para ID:", caminhaoId);
+      
+      const res = await fetch(`/api/historico/desfazer/${caminhaoId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const resultado = await res.json();
+      console.log("[FRONT] Resposta da API:", resultado);
+
+      if (res.ok) {
+        toast({
+          title: "Finalização desfeita",
+          description: "Caminhão movido de volta ao estacionamento.",
+        });
+
+        setHistoryData((prev) => prev.filter((item) => item.caminhaoId === caminhaoId ? false : true));
+        setDetailsDialogOpen(false);
+      } else {
+        console.error("[FRONT] Erro ao desfazer finalização", resultado);
+        toast({
+          title: "Erro",
+          description: resultado.error || "Falha ao desfazer finalização",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error("[FRONT] Erro inesperado:", err);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao desfazer finalização",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUndoing(false);
+    }
+  };
+
+  const gerarRelatorioHistoricoPDF = () => {
+    const doc = new jsPDF();
+    const agora = new Date();
+    const dataHora = agora.toLocaleString("pt-BR");
+
+    doc.addImage(logoBase64, "PNG", 10, 10, 60, 18);
+    doc.setFontSize(14);
+    doc.text("Relatório de Descarregamentos", 75, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${dataHora}`, 75, 26);
+
+    const rows = filteredData.map((item) => [
+      item.plate,
+      item.transportadora,
+      item.motorista || "N/D",
+      item.destination,
+      item.horaInicioCarregamento ? "Carregamento" : item.manual ? "Manual" : "Automática",
+      item.entryDate ? new Date(item.entryDate).toLocaleString("pt-BR") : "N/D",
+      item.horaSaida ? new Date(item.horaSaida).toLocaleString("pt-BR") : "N/D",
+      item.tempoLiberacaoMin != null ? `${item.tempoLiberacaoMin} min` : "N/D",
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [
+        [
+          "Placa",
+          "Transportadora",
+          "Motorista",
+          "Destino",
+          "Autorização",
+          "Entrada",
+          "Saída",
+          "Tempo Liberação",
+        ],
+      ],
+      body: rows,
+      styles: { fontSize: 9 },
+      headStyles: {
+        fillColor: [26, 64, 108],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    doc.save(`relatorio-historico-${agora.getTime()}.pdf`);
+  };
+
   const filteredData = historyData.filter((item) => {
     const matchesPlate = item.plate.toLowerCase().includes(searchPlate.toLowerCase());
     const matchesDestination =
@@ -187,7 +285,7 @@ export default function HistoryLog() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" onClick={gerarRelatorioHistoricoPDF}>
                 <FileDown className="h-5 w-5" />
               </Button>
             </div>
@@ -277,10 +375,11 @@ export default function HistoryLog() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><strong>ID:</strong> {selectedRecord.id}</div>
                 <div><strong>Placa:</strong> {selectedRecord.plate}</div>
+                <div><strong>Motorista:</strong> {selectedRecord.motorista || "N/D"}</div>
                 <div><strong>Horário de chegada:</strong> {formatDateTime(selectedRecord.entryDate)}</div>
 
                 {selectedRecord.horaInicioCarregamento ? (
-                  <div><strong>Horário da liberação:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
+                  <div><strong>Horário da liberação:</strong> {formatDateTime(selectedRecord.analises?.[0]?.dataAnalise)}</div>
                 ) : (
                   <div><strong>Horário da coleta:</strong> {formatDateTime(selectedRecord.collectionDate)}</div>
                 )}
@@ -328,7 +427,7 @@ export default function HistoryLog() {
                 </div>
               )}
 
-              {selectedRecord?.status === "finalizado" && !selectedRecord.horaSaida && (
+              {!selectedRecord?.horaSaida && (
                 <div className="pt-4">
                   <Button 
                     onClick={() => concluirSaida(selectedRecord.caminhaoId)} 
@@ -336,6 +435,24 @@ export default function HistoryLog() {
                     disabled={isConcludingExit}
                   >
                     {isConcludingExit ? "Processando..." : "Concluir saída"}
+                  </Button>
+                </div>
+              )}
+
+              {userRole === "SYSADMIN" && selectedRecord?.horaSaida && (
+                <div className="pt-2">
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      const confirmar = confirm("Tem certeza que deseja desfazer a finalização deste caminhão? Ele será movido de volta para o pátio.");
+                      if (confirmar) {
+                        desfazerFinalizacao(selectedRecord.caminhaoId);
+                      }
+                    }}
+                    className="w-full md:w-auto"
+                    disabled={isUndoing}
+                  >
+                    {isUndoing ? "Processando..." : "Desfazer Finalização"}
                   </Button>
                 </div>
               )}

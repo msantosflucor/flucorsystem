@@ -15,12 +15,15 @@ import { useRouter } from "next/navigation";
 import {
   Truck, Clock, FlaskConical, AlertTriangle, ChevronLeft,
 } from "lucide-react";
+import FlucorLogo from "@/components/flucor-logo";
+import UnitSelector from "@/components/unit-selector";
 
 export default function IncompativeisPage() {
   const [analises, setAnalises] = useState<any[]>([]);
   const [selectedAnalise, setSelectedAnalise] = useState<any | null>(null);
   const [justificativa, setJustificativa] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
+  const [unitColor, setUnitColor] = useState("#8B1A1A");
   const { toast } = useToast();
   const router = useRouter();
 
@@ -84,20 +87,32 @@ export default function IncompativeisPage() {
     carregarAnalises();
   }, []);
 
+  const handleUnitChange = (color: string) => {
+    setUnitColor(color);
+    toast({
+      title: "Unidade alterada",
+      description: "Você alterou para uma nova unidade.",
+    });
+  };
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="container mx-auto py-6">
+      {/* Cabeçalho com logo e unidade */}
+      <header className="mb-6 flex items-center justify-between">
+        <FlucorLogo size="medium" unitColor={unitColor} />
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => router.back()}>
+          <UnitSelector currentUnitColor={unitColor} onUnitChange={handleUnitChange} />
+          <Button variant="outline" onClick={() => router.back()}>
             <ChevronLeft className="w-5 h-5 mr-1" />
             Voltar
           </Button>
-          <h1 className="text-2xl font-bold">Análises Incompatíveis</h1>
         </div>
-      </div>
+      </header>
+
+      <h1 className="text-2xl font-bold mb-4 text-center">Análises Incompatíveis</h1>
 
       {analises.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma análise incompatível pendente.</p>
+        <p className="text-muted-foreground text-center">Nenhuma análise incompatível pendente.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {analises.map((analise) => (
@@ -126,19 +141,11 @@ export default function IncompativeisPage() {
                   <Badge variant="destructive">Incompatível</Badge>
                 </div>
                 <div className="flex justify-between gap-2 pt-2">
-                  <Button
-                    variant="destructive"
-                    onClick={() => rejeitarAnalise(analise.id)}
-                  >
-                    Rejeitar
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => {
-                      setSelectedAnalise(analise);
-                      setModalAberto(true);
-                    }}
-                  >
+                  <Button variant="destructive" onClick={() => rejeitarAnalise(analise.id)}>Rejeitar</Button>
+                  <Button onClick={() => {
+                    setSelectedAnalise(analise);
+                    setModalAberto(true);
+                  }}>
                     Liberar
                   </Button>
                 </div>

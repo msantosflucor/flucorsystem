@@ -5,7 +5,7 @@ interface Params {
   params: { id: string };
 }
 
-// 🔍 GET - Obter análise por ID
+// GET - Obter análise por ID
 export async function GET(req: Request, { params }: Params) {
   const id = parseInt(params.id);
 
@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: Params) {
   }
 }
 
-// ✏️ PATCH - Atualizar análise por ID
+// PATCH - Atualizar análise por ID
 export async function PATCH(req: Request, { params }: Params) {
   const id = parseInt(params.id);
 
@@ -92,7 +92,7 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 }
 
-// 🗑️ DELETE - Remover análise
+// DELETE - Remover análise
 export async function DELETE(req: Request, { params }: Params) {
   const id = parseInt(params.id);
 

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-// 🔍 GET - Buscar dados da caixa por ID
+// GET - Buscar dados da caixa por ID
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -51,7 +51,7 @@ export async function GET(
   }
 }
 
-// ✏ PATCH - Liberar ou ocupar caixa e movimentar caminhões
+// PATCH - Liberar ou ocupar caixa e movimentar caminhões
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -87,7 +87,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Caixa não encontrada." }, { status: 404 });
     }
 
-    // 🚚 Se for liberar a caixa:
+    // Se for liberar a caixa:
     if (status === "livre") {
       // Verificar se há caminhão na caixa
       const caminhaoNaCaixa = await prisma.caminhao.findFirst({
@@ -117,7 +117,7 @@ export async function PATCH(
       return NextResponse.json({ message: "Caixa liberada com sucesso." });
     }
 
-    // 🚚 Se for ocupar a caixa:
+    // Se for ocupar a caixa:
     if (status === "ocupada") {
       // Verificar se há caminhão no estacionamento destinado a essa caixa
       const caminhaoNoPatio = await prisma.caminhao.findFirst({
@@ -162,7 +162,7 @@ export async function PATCH(
   }
 }
 
-// 🗑 DELETE - Remover caixa
+// DELETE - Remover caixa
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }

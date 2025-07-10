@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
         possuiEPI,
         vestimentaIrregular,
         estadoFisico,
-        status: StatusCaminhao.in_progress,
+        status: StatusCaminhao.waiting, // Corrigido para iniciar como "Aguardando análise"
         criadoEm: new Date(),
-        carregamento, // incluído no banco
+        carregamento,
       },
     });
 
@@ -99,6 +99,8 @@ export async function GET() {
             observacoes: true,
             criadoEm: true,
             tipoResiduo: true,
+            destino: true,
+            outroDestino: true,
             liberadaIncompativel: true,
             justificativaLiberacaoIncompativel: true,
           },

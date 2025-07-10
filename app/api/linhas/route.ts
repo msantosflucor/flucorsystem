@@ -80,7 +80,7 @@ export async function PATCH(req: Request) {
       include: { caixas: true },
     });
 
-    // ✅ Log e manutenção ao entrar em manutenção
+    // Log e manutenção ao entrar em manutenção
     if (status === "maintenance" && motivoManutencao?.trim()) {
       await prisma.manutencaoLinha.create({
         data: {
@@ -96,7 +96,7 @@ export async function PATCH(req: Request) {
       });
     }
 
-    // ✅ Log ao sair da manutenção
+    // Log ao sair da manutenção
     if (status === "active") {
       await prisma.manutencaoLinha.updateMany({
         where: {

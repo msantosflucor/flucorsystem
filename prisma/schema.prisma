@@ -66,6 +66,9 @@ model Analise {
   motivoLiberacaoSemDescarga       String?
   tipoResiduo                       TipoResiduo?
 
+  destino                           String?
+  outroDestino                      String?
+
   caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
 
   @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
@@ -147,6 +150,18 @@ model LogUsuario {
   criadoEm   DateTime   @default(now())
 }
 
+model Acesso {
+  id                Int       @id @default(autoincrement())
+  nomePessoa        String
+  documentoPessoa   String
+  placaVeiculo      String?
+  empresaOuSetor    String?
+  pessoaSolicitante String?   // novo campo
+  dataEntrada       DateTime  @default(now())
+  dataSaida         DateTime?
+  criadoEm          DateTime  @default(now())
+}
+
 enum StatusLinha {
   active
   maintenance
@@ -178,6 +193,9 @@ enum Role {
   SYSADMIN
   PADRAO
   QUIMICO
+  OPERADOR
+  GUARITA
+  LOGISTICA
 }
 
 enum Modulo {
@@ -188,4 +206,29 @@ enum Modulo {
   LINHAS
   CAIXAS
   CAMINHAO
+  ACESSO
+}
+
+model Colaborador {
+  id               Int        @id @default(autoincrement())
+  nome             String
+  documento        String
+  tipoCombustivel  String?
+  litrosCombustivel Float?
+  validadeInicio   DateTime?
+  validadeFim      DateTime?
+  criadoEm         DateTime   @default(now())
+
+  veiculos         Veiculo[]
+}
+
+model Veiculo {
+  id            Int         @id @default(autoincrement())
+  placa         String
+  modelo        String
+  cor           String
+  colaboradorId Int
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+
+  @@index([colaboradorId])
 }

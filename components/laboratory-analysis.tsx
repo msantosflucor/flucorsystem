@@ -35,6 +35,7 @@ export default function LaboratoryAnalysis() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [buscaPlaca, setBuscaPlaca] = useState("");
   const router = useRouter();
   const { toast } = useToast();
 
@@ -72,15 +73,15 @@ export default function LaboratoryAnalysis() {
   const sample = caminhoes.find((c) => c.id === selectedId);
 
   const handleSelecionar = (id: number) => {
-    setSelectedId(id);
     const selected = caminhoes.find(c => c.id === id);
     const ultimaAnalise = selected?.analises?.[0];
 
-    setStatus(ultimaAnalise?.status || "");
-    setTanque(ultimaAnalise?.tanque || "");
-    setObservacoes(ultimaAnalise?.observacoes || "");
-    setTipoResiduo(ultimaAnalise?.tipoResiduo || "");
-    setActiveTab("analysis");
+    setSelectedId(id);
+    setStatus(prev => prev || ultimaAnalise?.status || "");
+    setTanque(prev => prev || ultimaAnalise?.tanque || "");
+    setObservacoes(prev => prev || ultimaAnalise?.observacoes || "");
+    setTipoResiduo(prev => prev || ultimaAnalise?.tipoResiduo || "");
+    setActiveTab(selected?.carregamento ? "carregamento" : "analysis");
   };
 
   const openDetalhesDialog = (caminhao: any) => {
@@ -197,13 +198,31 @@ export default function LaboratoryAnalysis() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="pending">Registros</TabsTrigger>
-        <TabsTrigger value="analysis" disabled={!sample}>Registrar Análise</TabsTrigger>
-        <TabsTrigger value="carregamento" disabled={!selectedId}>
-          Registrar Carregamento
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex justify-between items-center">
+        <TabsList>
+          <TabsTrigger value="pending">Registros</TabsTrigger>
+          <TabsTrigger 
+            value="analysis" 
+            disabled={!sample || sample?.carregamento}
+          >
+            Registrar Análise
+          </TabsTrigger>
+          <TabsTrigger 
+            value="carregamento" 
+            disabled={!selectedId || !sample?.carregamento}
+          >
+            Registrar Carregamento
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="w-[200px]">
+          <Input
+            placeholder="Buscar por placa..."
+            value={buscaPlaca}
+            onChange={(e) => setBuscaPlaca(e.target.value.toUpperCase())}
+          />
+        </div>
+      </div>
 
       <TabsContent value="pending">
         {(userRole === "SYSADMIN" || userRole === "QUIMICO") && (
@@ -215,51 +234,63 @@ export default function LaboratoryAnalysis() {
         )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {caminhoes.filter(c => c.status !== "finalizado").map(c => {
-            const ultimaAnalise = c.analises?.[0];
-            const podeAnalisar = !!c.horaColeta && (
-              !ultimaAnalise ||
-              ultimaAnalise.status !== "incompatible" ||
-              ultimaAnalise.liberadaIncompativel === true
-            );
+          {caminhoes
+            .filter(c => c.status !== "finalizado")
+            .filter(c => c.placa.toUpperCase().includes(buscaPlaca))
+            .map(c => {
+              const ultimaAnalise = c.analises?.[0];
+              const podeAnalisar = !!c.horaColeta && (
+                !ultimaAnalise ||
+                ultimaAnalise.status !== "incompatible" ||
+                ultimaAnalise.liberadaIncompativel === true
+              );
 
-            return (
-              <Card key={c.id}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
+              return (
+                <Card key={c.id}>
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2">
                     <span>Placa: {c.placa}</span>
-                    <Badge className={statusColor(c.status)}>{statusLabel(c.status)}</Badge>
+                   {c.carregamento && (
+                   <span title="Carregamento" className="text-xl">🚚📦</span>
+                   )}
+                   </div>
+                  <Badge className={statusColor(c.status)}>{statusLabel(c.status)}</Badge>
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <div><strong>Transportadora:</strong> {c.transportadora}</div>
-                  <div><strong>Caixa:</strong> {c.caixa ? `${c.caixa.nome} - ${c.caixa.tipoResiduo}` : "N/A"}</div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{getTimeElapsed(c.criadoEm)} min</span>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex gap-2 flex-wrap">
-                  <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>Detalhes</Button>
-                  {c.carregamento ? (
-                    <Button onClick={() => {
-                      setSelectedId(c.id);
-                      setActiveTab("carregamento");
-                    }}>Analisar</Button>
-                  ) : !c.horaColeta ? (
-                    <Button variant="outline" onClick={() => coletarAmostra(c.id)}>Coletar</Button>
-                  ) : (
-                    <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>Analisar</Button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-1">
+                    <div><strong>Transportadora:</strong> {c.transportadora}</div>
+                    {c.carregamento ? (
+                      <div><strong>Tanque:</strong> {c.analises?.[0]?.tanque || "N/D"}</div>
+                    ) : (
+                      <div><strong>Caixa:</strong> {c.caixa ? `${c.caixa.nome} - ${c.caixa.tipoResiduo}` : "N/A"}</div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{getTimeElapsed(c.criadoEm)} min</span>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex gap-2 flex-wrap">
+                    <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>Detalhes</Button>
+                    {c.carregamento ? (
+                      <Button onClick={() => {
+                        setSelectedId(c.id);
+                        setActiveTab("carregamento");
+                      }}>Analisar</Button>
+                    ) : !c.horaColeta ? (
+                      <Button variant="outline" onClick={() => coletarAmostra(c.id)}>Coletar</Button>
+                    ) : (
+                      <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>Analisar</Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              );
+            })}
         </div>
       </TabsContent>
 
       <TabsContent value="analysis">
-        {sample ? (
+        {sample && !sample.carregamento ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -338,12 +369,12 @@ export default function LaboratoryAnalysis() {
             </CardFooter>
           </Card>
         ) : (
-          <p className="text-muted-foreground">Nenhuma amostra selecionada.</p>
+          <p className="text-muted-foreground">Nenhuma amostra selecionada ou caminhão de carregamento.</p>
         )}
       </TabsContent>
 
       <TabsContent value="carregamento">
-        {selectedId ? (
+        {selectedId && sample?.carregamento ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -351,26 +382,128 @@ export default function LaboratoryAnalysis() {
                 Registrar Carregamento
               </CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-6">
-              <p>Deseja liberar ou negar o carregamento do caminhão <strong>{sample?.placa}</strong>?</p>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div><strong>ID:</strong> {sample.id}</div>
+                <div><strong>Placa:</strong> {sample.placa}</div>
+                <div><strong>Transportadora:</strong> {sample.transportadora}</div>
+                <div><strong>Entrada:</strong> {new Date(sample.criadoEm).toLocaleString()}</div>
+              </div>
+
+              <div>
+                <Label>Tanque</Label>
+                <Input
+                  placeholder="TQ01, IBC, Tambor..."
+                  value={tanque}
+                  onChange={(e) => setTanque(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Tipo de Resíduo</Label>
+                <select
+                  className="w-full border p-2 rounded"
+                  value={tipoResiduo}
+                  onChange={(e) => setTipoResiduo(e.target.value as TipoResiduo)}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Diversos">Diversos</option>
+                  <option value="Oleoso">Oleoso</option>
+                  <option value="Alcalino">Alcalino</option>
+                  <option value="Acidos">Ácido</option>
+                  <option value="Lodo">Lodo</option>
+                </select>
+              </div>
+
+              <div>
+                <Label>Observações</Label>
+                <Textarea
+                  placeholder="Observações relevantes..."
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Destino</Label>
+                <select
+                  className="w-full border p-2 rounded"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Beneficiamento">Beneficiamento</option>
+                  <option value="Coprocessamento">Coprocessamento</option>
+                  <option value="Venda">Venda</option>
+                  <option value="Destinação">Destinação</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+
+              {status === "Outros" && (
+                <div>
+                  <Label>Descrever Destino</Label>
+                  <Input
+                    placeholder="Descreva o destino..."
+                    value={tipoResiduo}
+                    onChange={(e) => setTipoResiduo(e.target.value)}
+                  />
+                </div>
+              )}
+            </CardContent>
+
+            <CardFooter className="flex justify-between flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setActiveTab("pending")}>
+                Voltar
+              </Button>
+              <div className="flex gap-2">
                 <Button
                   className="bg-green-600 text-white"
                   onClick={async () => {
+                    if (!tanque || !status || (status === "Outros" && !tipoResiduo)) {
+                      toast({
+                        title: "Preenchimento incompleto",
+                        description: "Preencha todos os campos obrigatórios antes de continuar.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    await fetch(`/api/laboratorio`, {
+                      method: "POST",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        caminhaoId: selectedId,
+                        tanque,
+                        observacoes,
+                        destino: status,
+                        outroDestino: status === "Outros" ? tipoResiduo : null,
+                        tipoResiduo,
+                        status: "approved",
+                      }),
+                    });
+
                     await fetch(`/api/laboratorio/${selectedId}/liberar-carregamento`, {
                       method: "PATCH",
                       credentials: "include",
                     });
+
                     toast({
                       title: "Carregamento liberado",
                       description: "O caminhão foi liberado para carregamento.",
                     });
+
                     fetchCaminhoes();
+                    setSelectedId(null);
                     setActiveTab("pending");
                   }}
                 >
                   Liberar Carregamento
                 </Button>
+
                 <Button
                   variant="destructive"
                   onClick={async () => {
@@ -383,32 +516,56 @@ export default function LaboratoryAnalysis() {
                       description: "O caminhão foi recusado para carregamento.",
                     });
                     fetchCaminhoes();
+                    setSelectedId(null);
                     setActiveTab("pending");
                   }}
                 >
                   Negar Carregamento
                 </Button>
               </div>
-            </CardContent>
+            </CardFooter>
           </Card>
         ) : (
-          <p className="text-muted-foreground">Nenhum caminhão selecionado.</p>
+          <p className="text-muted-foreground">Nenhum caminhão de carregamento selecionado.</p>
         )}
       </TabsContent>
 
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Detalhes do Registro</DialogTitle>
+            <DialogTitle>
+              {selectedDetalhes?.carregamento ? "Detalhes do Carregamento" : "Detalhes do Registro"}
+            </DialogTitle>
           </DialogHeader>
 
           {selectedDetalhes && (
             <div className="space-y-2 text-sm">
               <div><strong>Placa:</strong> {selectedDetalhes.placa}</div>
               <div><strong>Transportadora:</strong> {selectedDetalhes.transportadora}</div>
-              <div><strong>Caixa:</strong> {selectedDetalhes.caixa ? `${selectedDetalhes.caixa.nome} - ${selectedDetalhes.caixa.tipoResiduo}` : "N/A"}</div>
+              {selectedDetalhes.carregamento ? (
+                <div>
+                  <strong>Destino:</strong>{" "}
+                  {selectedDetalhes.analises?.[0]?.destino === "Outros"
+                    ? selectedDetalhes.analises?.[0]?.outroDestino || "—"
+                    : selectedDetalhes.analises?.[0]?.destino || "—"}
+                </div>
+              ) : (
+                <div>
+                  <strong>Caixa:</strong>{" "}
+                  {selectedDetalhes.caixa
+                    ? `${selectedDetalhes.caixa.nome} - ${selectedDetalhes.caixa.tipoResiduo}`
+                    : "N/A"}
+                </div>
+              )}
               <div><strong>Entrada:</strong> {new Date(selectedDetalhes.criadoEm).toLocaleString()}</div>
-              <div><strong>Coleta:</strong> {selectedDetalhes.horaColeta ? new Date(selectedDetalhes.horaColeta).toLocaleString() : "Aguardando coleta"}</div>
+              <div>
+                <strong>{selectedDetalhes.carregamento ? "Hora da Liberação" : "Hora da Coleta"}:</strong>{" "}
+                {selectedDetalhes.horaColeta
+                  ? new Date(selectedDetalhes.horaColeta).toLocaleString()
+                  : selectedDetalhes.carregamento
+                  ? "Aguardando liberação"
+                  : "Aguardando coleta"}
+              </div>
               <div><strong>Status:</strong> {statusLabel(selectedDetalhes.status)}</div>
               <div><strong>Tanque:</strong> {selectedDetalhes.analises?.[0]?.tanque || "—"}</div>
               <div><strong>Tipo de Resíduo:</strong> {selectedDetalhes.analises?.[0]?.tipoResiduo || "—"}</div>

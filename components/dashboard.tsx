@@ -29,6 +29,7 @@ import LineManagement from "@/components/line-management";
 import UnitSelector from "@/components/unit-selector";
 import ParkingDashboard from "@/components/parking-dashboard";
 import { Button } from "@/components/ui/button";
+import AccessControl from "@/components/access-control";
 
 export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const { toast } = useToast();
@@ -41,6 +42,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const [analisesHoje, setAnalisesHoje] = useState([]);
   const [caixas, setCaixas] = useState([]);
   const [permissoes, setPermissoes] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -78,11 +80,23 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
   };
 
   useEffect(() => {
-    const storedPermissoes =
-      typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("permissoes") || "[]")
-        : [];
-    setPermissoes(storedPermissoes);
+    if (typeof window !== "undefined") {
+      const storedPermissoes = JSON.parse(localStorage.getItem("permissoes") || "[]");
+      const storedRole = localStorage.getItem("role");
+
+      setPermissoes(storedPermissoes);
+      setUserRole(storedRole);
+
+      const tab = searchParams.get("tab");
+      if (tab && storedPermissoes.includes(tab.toUpperCase())) {
+        setActiveTab(tab);
+      } else if (storedPermissoes.length > 0) {
+        // Define a primeira aba que o usuário tem acesso
+        const primeiraPermissao = storedPermissoes[0].toLowerCase();
+        setActiveTab(primeiraPermissao);
+        router.replace(`/dashboard?tab=${primeiraPermissao}`);
+      }
+    }
 
     fetchData();
   }, []);
@@ -170,16 +184,20 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
             currentUnitColor={currentUnitColor}
             onUnitChange={handleUnitChange}
           />
-          <PendingSamplesIndicator />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportarRelatorioDashboard}
-          >
-            Exportar Relatório
-          </Button>
+          {!["GUARITA", "LOGISTICA"].includes(userRole || "") && (
+            <PendingSamplesIndicator />
+          )}
+          {!["GUARITA", "LOGISTICA"].includes(userRole || "") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportarRelatorioDashboard}
+            >
+              Exportar Relatório
+            </Button>
+          )}
           {typeof window !== "undefined" &&
-            localStorage.getItem("role")?.toLowerCase() === "sysadmin" && (
+            ["sysadmin", "logistica"].includes(localStorage.getItem("role")?.toLowerCase() || "") && (
               <Button
                 variant="default"
                 size="sm"
@@ -200,7 +218,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="flex justify-start gap-4 border-b w-full mb-4">
           {permissoes.includes("DASHBOARD") && (
             <TabsTrigger value="dashboard">
               <Clock className="h-5 w-5" />
@@ -235,6 +253,12 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
             <TabsTrigger value="parking">
               <MapPin className="h-5 w-5" />
               Estacionamento
+            </TabsTrigger>
+          )}
+          {permissoes.includes("ACESSO") && (
+            <TabsTrigger value="acesso">
+              <Clock className="h-5 w-5" />
+              Controle de Acesso
             </TabsTrigger>
           )}
         </TabsList>
@@ -282,6 +306,12 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         {permissoes.includes("ESTACIONAMENTO") && (
           <TabsContent value="parking">
             <ParkingDashboard onAtualizarCaixas={fetchData} />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("ACESSO") && (
+          <TabsContent value="acesso">
+            <AccessControl />
           </TabsContent>
         )}
       </Tabs>

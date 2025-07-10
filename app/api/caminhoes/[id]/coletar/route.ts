@@ -12,7 +12,10 @@ export const PATCH = async (req: NextRequest) => {
 
     const atualizado = await prisma.caminhao.update({
       where: { id: caminhaoId },
-      data: { horaColeta: new Date() },
+      data: {
+        horaColeta: new Date(),
+        status: "in_progress", // status atualizado corretamente
+      },
     });
 
     return NextResponse.json({

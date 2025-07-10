@@ -25,13 +25,15 @@ export default function Inicio() {
         const permissoes: string[] = data.user.permissoes || [];
 
         const rotaPorModulo: Record<string, string> = {
-          DASHBOARD: "/dashboard",
-          LABORATORIO: "/laboratorio",
-          CAIXAS: "/caixas",
-          LINHAS: "/linhas",
-          HISTORICO: "/historico",
-          ESTACIONAMENTO: "/estacionamento",
-          USUARIOS: "/auth/usuarios",
+          DASHBOARD: "/dashboard?tab=dashboard",
+          LABORATORIO: "/dashboard?tab=laboratorio",
+          CAIXAS: "/dashboard?tab=caixas",
+          LINHAS: "/dashboard?tab=linhas",
+          HISTORICO: "/dashboard?tab=historico",
+          ESTACIONAMENTO: "/dashboard?tab=estacionamento",
+          USUARIOS: "/dashboard?tab=usuarios",
+          ACESSO: "/dashboard?tab=acesso",
+          LOGISTICA: "/dashboard?tab=logistica",
         };
 
         const primeiraRotaValida = permissoes.find((p) => rotaPorModulo[p]);

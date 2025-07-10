@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 
-const ROLES = ["PADRAO", "QUIMICO", "SYSADMIN"];
+const ROLES = ["PADRAO", "QUIMICO", "SYSADMIN", "GUARITA"]; // ← Role GUARITA adicionada aqui
 
 const MODULOS = [
   "DASHBOARD",
@@ -30,6 +30,7 @@ const MODULOS = [
   "LINHAS",
   "CAIXAS",
   "CAMINHAO",
+  "ACESSO",
 ];
 
 type Props = {

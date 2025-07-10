@@ -15,10 +15,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoBase64 from "@/lib/logo-base64-validado";
 
 interface ParkingDashboardProps {
   onAtualizarCaixas: () => Promise<void>;
 }
+
+const tipoLinhaPorCaixa: Record<number, string> = {
+  1: "Diversos",
+  2: "Diversos",
+  3: "Oleoso",
+  4: "Alcalino",
+  5: "Ácidos",
+  6: "Lodo",
+};
 
 export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboardProps) {
   const { toast } = useToast();
@@ -33,6 +45,8 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   const [motivoLiberacao, setMotivoLiberacao] = useState("");
   const [analise, setAnalise] = useState<any>(null);
   const [isCarregamento, setIsCarregamento] = useState(false);
+  const [placaBusca, setPlacaBusca] = useState("");
+  const [mostrarLegenda, setMostrarLegenda] = useState(false);
 
   const fetchTrucks = async () => {
     try {
@@ -44,6 +58,8 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       const mappedData = filtered.map((item: any) => ({
         id: item.id,
         plate: item.placa,
+        motorista: item.motorista ?? "Não informado",
+        transportadora: item.transportadora ?? "Não informado",
         origin: item.origem ?? "Não informado",
         box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
         destinoCaixaId: item.destinoCaixaId,
@@ -194,7 +210,8 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   const filteredTrucks = trucksData.filter((truck) => {
     const matchesStatus = statusFilter === "all" || truck.status === statusFilter;
     const matchesType = typeFilter === "all" || truck.type === typeFilter;
-    return matchesStatus && matchesType;
+    const matchesPlaca = truck.plate.toUpperCase().includes(placaBusca.toUpperCase());
+    return matchesStatus && matchesType && matchesPlaca;
   });
 
   const getTruckBackgroundColor = (status: string) => {
@@ -202,7 +219,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       case "approved": return "bg-green-100 border-green-300";
       case "in_progress": return "bg-yellow-100 border-yellow-300";
       case "incompatible": return "bg-red-100 border-red-300";
-      case "rejected": return "bg-gray-800 border-gray-900 text-white";
+      case "rejected": return "bg-gray-300 border-gray-400 text-black";
       case "waiting":
       default: return "bg-blue-100 border-blue-300";
     }
@@ -213,7 +230,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       case "approved": return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case "in_progress": return <Clock className="h-5 w-5 text-yellow-600" />;
       case "incompatible": return <AlertTriangle className="h-5 w-5 text-red-600" />;
-      case "rejected": return <AlertTriangle className="h-5 w-5 text-white" />;
+      case "rejected": return <AlertTriangle className="h-5 w-5 text-gray-600" />;
       case "waiting":
       default: return <Clock className="h-5 w-5 text-blue-600" />;
     }
@@ -224,10 +241,60 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       case "approved": return "Liberado";
       case "in_progress": return "Em Análise";
       case "incompatible": return "Incompatível";
-      case "rejected": return "Recusado";
+      case "rejected": return "Recusado pelo Laboratório";
       case "waiting": return "Aguardando";
       default: return "Desconhecido";
     }
+  };
+
+  const gerarPDF = () => {
+    const doc = new jsPDF();
+    const agora = new Date();
+    const dataFormatada = agora.toLocaleDateString("pt-BR");
+    const horaFormatada = agora.toLocaleTimeString("pt-BR");
+    const timestamp = `${dataFormatada} ${horaFormatada}`;
+
+    // Logo no topo
+    doc.addImage(logoBase64, "PNG", 10, 10, 60, 18);
+
+    // Cabeçalho
+    doc.setFontSize(14);
+    doc.text("Relatório de Caminhões no Pátio", 75, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${timestamp}`, 75, 26);
+
+    // Espaço após o cabeçalho
+    doc.setFontSize(12);
+    doc.text("Lista de caminhões ativos:", 14, 40);
+
+    const rows = filteredTrucks.map((truck) => [
+      truck.plate,
+      truck.motorista,
+      truck.transportadora,
+      `${truck.time} min`,
+      getStatusText(truck.status),
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [["Placa", "Motorista", "Transportadora", "Tempo de Espera", "Status"]],
+      body: rows,
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [26, 64, 108], // Azul escuro
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    doc.save(`relatorio-patio-${agora.getTime()}.pdf`);
   };
 
   return (
@@ -242,7 +309,23 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             </h2>
             <p className="text-muted-foreground">Visualização dos caminhões no pátio</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-end">
+            {/* Botão Gerar PDF */}
+            <Button variant="outline" className="h-[38px]" onClick={gerarPDF}>
+              Gerar PDF
+            </Button>
+
+            {/* Botão de ajuda */}
+            <Button
+              variant="ghost"
+              className="h-[38px] px-2"
+              onClick={() => setMostrarLegenda(true)}
+              title="Ver legenda de cores"
+            >
+              <Info className="w-4 h-4" />
+            </Button>
+
+            {/* Filtro Status */}
             <div className="w-[160px]">
               <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status</label>
               <select
@@ -260,6 +343,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
               </select>
             </div>
 
+            {/* Filtro Tipo */}
             <div className="w-[160px]">
               <label htmlFor="type-filter" className="block text-sm font-medium mb-1">Tipo</label>
               <select
@@ -275,6 +359,19 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 <option value="Ácidos">Ácidos</option>
                 <option value="Lodo">Lodo</option>
               </select>
+            </div>
+
+            {/* Filtro Placa */}
+            <div className="w-[200px]">
+              <label htmlFor="placa-filter" className="block text-sm font-medium mb-1">Buscar Placa</label>
+              <input
+                id="placa-filter"
+                type="text"
+                placeholder="DIGITE A PLACA"
+                className="w-full border px-3 py-2 rounded-md uppercase"
+                value={placaBusca}
+                onChange={(e) => setPlacaBusca(e.target.value.toUpperCase())}
+              />
             </div>
           </div>
         </div>
@@ -298,15 +395,17 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                     key={truck.id}
                     className={`relative rounded-md border p-3 ${
                       isCarregamento 
-                        ? "bg-cyan-100 border-cyan-400" 
+                        ? truck.status === "rejected"
+                          ? "bg-gray-300 border-gray-400"
+                          : "bg-cyan-100 border-cyan-400"
                         : getTruckBackgroundColor(truck.status)
                     }`}
                   >
                     <div className="absolute top-2 right-2 flex items-center gap-1">
                       {isCarregamento && (
-                        <Badge variant="secondary" className="text-xs bg-cyan-600 text-white">
-                          Carregamento
-                        </Badge>
+                        <span title="Caminhão de Carregamento" className="text-lg">
+                          🚚📦
+                        </span>
                       )}
                       {getTruckStatusIcon(truck.status)}
                     </div>
@@ -387,6 +486,14 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                   <div className="text-sm text-gray-500">Origem</div>
                   <div className="font-medium">{selectedTruck.origin}</div>
                 </div>
+                <div>
+                  <div className="text-sm text-gray-500">Motorista</div>
+                  <div className="font-medium">{selectedTruck.motorista}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Transportadora</div>
+                  <div className="font-medium">{selectedTruck.transportadora}</div>
+                </div>
               </div>
 
               {isCarregamento && (
@@ -445,14 +552,15 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                         }}
                       >
                         <option value="">Selecione a caixa</option>
-                        {caixasDisponiveis.map((caixa) => (
-                          <option 
-                            key={caixa.id} 
-                            value={caixa.id}
-                          >
-                            {caixa.nome} {caixa.status !== "livre" && "(ocupada - em fila)"}
-                          </option>
-                        ))}
+                        {caixasDisponiveis.map((caixa) => {
+                          const tipoLinha = tipoLinhaPorCaixa[caixa.id] || "Tipo desconhecido";
+                          const statusInfo = caixa.status !== "livre" ? "(ocupada - em fila)" : "";
+                          return (
+                            <option key={caixa.id} value={caixa.id}>
+                              {caixa.nome} - {tipoLinha} {statusInfo}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -461,6 +569,9 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
 
               {isCarregamento ? (
                 <div className="flex justify-between pt-2">
+                  <Button variant="destructive" onClick={() => setShowLiberarModal(true)}>
+                    Liberar caminhão
+                  </Button>
                   {!selectedTruck.horaInicioCarregamento ? (
                     selectedTruck.status === "approved" ? (
                       <Button
@@ -489,8 +600,10 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                         Iniciar Carregamento
                       </Button>
                     ) : (
-                      <div className="text-sm text-yellow-700 bg-yellow-100 border border-yellow-300 rounded p-2">
-                        Aguardando liberação do laboratório.
+                      <div className={`text-sm ${selectedTruck.status === "rejected" ? "text-red-700 bg-red-100 border-red-300" : "text-yellow-700 bg-yellow-100 border-yellow-300"} rounded p-2`}>
+                        {selectedTruck.status === "rejected" 
+                          ? "Recusado pelo Laboratório" 
+                          : "Aguardando liberação do laboratório"}
                       </div>
                     )
                   ) : (
@@ -513,7 +626,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                             description: "Caminhão enviado para o histórico.",
                           });
                           
-                          // Remove the truck from the list immediately
                           setTrucksData(prev => prev.filter(t => t.id !== selectedTruck.id));
                           setDetailsDialogOpen(false);
                           await onAtualizarCaixas();
@@ -580,6 +692,24 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             <Button variant="secondary" onClick={() => setShowLiberarModal(false)}>Cancelar</Button>
             <Button onClick={liberarCaminhao}>Confirmar liberação</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Legenda */}
+      <Dialog open={mostrarLegenda} onOpenChange={setMostrarLegenda}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Legenda de Cores</DialogTitle>
+            <DialogDescription>Significado das cores no pátio de caminhões:</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm mt-4">
+            <li><span className="inline-block w-4 h-4 bg-blue-200 border border-blue-400 mr-2"></span> Aguardando</li>
+            <li><span className="inline-block w-4 h-4 bg-yellow-200 border border-yellow-400 mr-2"></span> Em Análise</li>
+            <li><span className="inline-block w-4 h-4 bg-green-200 border border-green-400 mr-2"></span> Liberado</li>
+            <li><span className="inline-block w-4 h-4 bg-red-200 border border-red-400 mr-2"></span> Incompatível</li>
+            <li><span className="inline-block w-4 h-4 bg-gray-300 border border-gray-400 mr-2"></span> Recusado</li>
+            <li><span className="inline-block w-4 h-4 bg-cyan-100 border border-cyan-400 mr-2"></span> Caminhão de Carregamento</li>
+          </ul>
         </DialogContent>
       </Dialog>
     </>

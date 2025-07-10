@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE `Permissao` MODIFY `modulo` ENUM('DASHBOARD', 'LABORATORIO', 'HISTORICO', 'ESTACIONAMENTO', 'LINHAS', 'CAIXAS', 'CAMINHAO', 'ACESSO') NOT NULL;
+
+-- CreateTable
+CREATE TABLE `Acesso` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `nomePessoa` VARCHAR(191) NOT NULL,
+    `documentoPessoa` VARCHAR(191) NOT NULL,
+    `placaVeiculo` VARCHAR(191) NULL,
+    `empresaOuSetor` VARCHAR(191) NULL,
+    `tipo` ENUM('PEDESTRE', 'VEICULO') NOT NULL,
+    `dataEntrada` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `dataSaida` DATETIME(3) NULL,
+    `criadoEm` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

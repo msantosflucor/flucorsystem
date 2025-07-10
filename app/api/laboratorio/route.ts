@@ -30,13 +30,24 @@ export async function GET() {
   }
 }
 
-// POST: registrar nova análise (com tipoResiduo)
+// POST: registrar nova análise (descarga ou carregamento)
 export async function POST(req: NextRequest) {
   try {
-    const { caminhaoId, status, tanque, observacoes, tipoResiduo } = await req.json();
+    const {
+      caminhaoId,
+      status,
+      tanque,
+      observacoes,
+      tipoResiduo,
+      destino,
+      outroDestino,
+    } = await req.json();
 
     if (!caminhaoId || !status || !tanque) {
-      return NextResponse.json({ error: "Dados obrigatórios faltando." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Dados obrigatórios faltando." },
+        { status: 400 }
+      );
     }
 
     const novaAnalise = await prisma.analise.create({
@@ -45,11 +56,13 @@ export async function POST(req: NextRequest) {
         status: status as StatusCaminhao,
         tanque,
         observacoes,
-        tipoResiduo: tipoResiduo as TipoResiduo, // <-- incluído
+        tipoResiduo: tipoResiduo as TipoResiduo || null,
+        destino,
+        outroDestino,
       },
     });
 
-    // Atualiza status do caminhão junto
+    // Atualiza o status do caminhão
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: { status: status as StatusCaminhao },

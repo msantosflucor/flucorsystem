@@ -48,6 +48,6 @@ export async function registrarLog({
       },
     });
   } catch (error) {
-    console.error("❌ Erro ao registrar log:", error);
+    console.error("Erro ao registrar log:", error);
   }
 }

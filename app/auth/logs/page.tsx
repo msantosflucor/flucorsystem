@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, FileText } from "lucide-react";
+import { CalendarIcon, FileText, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,12 +14,14 @@ import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { logoBase64 } from "@/lib/logo-base64-validado";
+import { useRouter } from "next/navigation";
+import FlucorLogo from "@/components/flucor-logo";
 
 type Log = {
   id: number;
   usuario: string | null;
   acao: string;
-  contexto: string | null; // ✅ corrigido aqui
+  contexto: string | null;
   criadoEm: string;
 };
 
@@ -28,6 +30,7 @@ export default function UserLogsPage() {
   const [filtroTexto, setFiltroTexto] = useState("");
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [filtrados, setFiltrados] = useState<Log[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/usuarios/logs", { credentials: "include" })
@@ -59,21 +62,25 @@ export default function UserLogsPage() {
 
   const exportarPDF = () => {
     const doc = new jsPDF();
+    const dataHoraAtual = format(new Date(), "dd/MM/yyyy HH:mm:ss");
 
     try {
       doc.addImage(logoBase64, "PNG", 10, 10, 60, 18);
     } catch (err) {
-      console.warn("❌ Erro ao carregar o logo no PDF:", err);
+      console.warn("Erro ao carregar logo no PDF:", err);
     }
 
     doc.setFontSize(16);
     doc.text("Relatório de Logs de Usuários", 10, 45);
 
-    let filtros: string[] = [];
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${dataHoraAtual}`, 200, 45, { align: "right" });
+
+    const filtros: string[] = [];
     if (filtroTexto) filtros.push(`Busca: "${filtroTexto}"`);
-    if (dataSelecionada) filtros.push(`Data: ${format(dataSelecionada, "dd/MM/yyyy")}`);
+    if (dataSelecionada)
+      filtros.push(`Data: ${format(dataSelecionada, "dd/MM/yyyy")}`);
     if (filtros.length > 0) {
-      doc.setFontSize(10);
       doc.text(`Filtros: ${filtros.join(" | ")}`, 10, 52);
     }
 
@@ -83,7 +90,7 @@ export default function UserLogsPage() {
       body: filtrados.map((log) => [
         log.usuario ?? "Desconhecido",
         log.acao,
-        log.contexto ?? "—", // ✅ aqui também
+        log.contexto ?? "—",
         format(new Date(log.criadoEm), "dd/MM/yyyy HH:mm"),
       ]),
       styles: { fontSize: 10 },
@@ -94,6 +101,14 @@ export default function UserLogsPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
+      <div className="flex items-center justify-between mb-6">
+        <FlucorLogo size="medium" unitColor="#8B1A1A" />
+        <Button variant="outline" onClick={() => router.push("/auth/usuarios")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Logs de Usuários</CardTitle>
@@ -162,7 +177,7 @@ export default function UserLogsPage() {
                   <tr key={log.id} className="border-b hover:bg-muted/50">
                     <td className="py-2 px-3">{log.usuario ?? "Desconhecido"}</td>
                     <td className="py-2 px-3">{log.acao}</td>
-                    <td className="py-2 px-3">{log.contexto ?? "—"}</td> {/* ✅ aqui estava errado */}
+                    <td className="py-2 px-3">{log.contexto ?? "—"}</td>
                     <td className="py-2 px-3">
                       {format(new Date(log.criadoEm), "dd/MM/yyyy HH:mm")}
                     </td>
