@@ -293,7 +293,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
 
         {permissoes.includes("HISTORICO") && (
           <TabsContent value="history">
-            <HistoryLog />
+            <HistoryLog onAtualizarEstacionamento={fetchData} />
           </TabsContent>
         )}
 

@@ -27,6 +27,7 @@ model Caminhao {
   horaColeta           DateTime?
   horaSaida            DateTime?
   tempoLiberacaoMin    Int?
+  origem            String?
 
   // Campos de segurança e inspeção
   documentoMotorista   String
@@ -68,6 +69,8 @@ model Analise {
 
   destino                           String?
   outroDestino                      String?
+
+  origem                            String?        // novo campo
 
   caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
 
@@ -179,6 +182,7 @@ enum StatusCaminhao {
   incompatible
   rejected
   finalizado
+  liberado_para_carregar
 }
 
 enum TipoResiduo {

@@ -7,7 +7,7 @@ import { jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
-// POST - Cadastrar novo caminhão com campos estendidos
+// POST - Cadastrar novo caminhão
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -22,17 +22,13 @@ export async function POST(req: NextRequest) {
       possuiEPI = false,
       vestimentaIrregular = false,
       estadoFisico = null,
-      carregamento = false, // novo campo
+      carregamento = false,
     } = await req.json();
 
     if (!placa || !motorista || !transportadora || !documentoMotorista) {
-      return NextResponse.json(
-        { error: "Campos obrigatórios faltando." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Campos obrigatórios faltando." }, { status: 400 });
     }
 
-    // Autenticação via cookie JWT
     const cookiesStore = cookies();
     const token = cookiesStore.get("token")?.value;
 
@@ -58,13 +54,12 @@ export async function POST(req: NextRequest) {
         possuiEPI,
         vestimentaIrregular,
         estadoFisico,
-        status: StatusCaminhao.waiting, // Corrigido para iniciar como "Aguardando análise"
+        status: StatusCaminhao.waiting,
         criadoEm: new Date(),
         carregamento,
       },
     });
 
-    // Log do usuário com autor e contexto corretos
     await registrarLog({
       usuarioId,
       autor,
@@ -75,14 +70,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(novoCaminhao, { status: 201 });
   } catch (error) {
     console.error("Erro ao salvar caminhão:", error);
-    return NextResponse.json(
-      { error: "Erro interno ao salvar caminhão." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro interno ao salvar caminhão." }, { status: 500 });
   }
 }
 
-// GET - Listar todos os caminhões com todas as análises ordenadas
+// GET - Listar todos os caminhões com análises
 export async function GET() {
   try {
     const caminhoes = await prisma.caminhao.findMany({
@@ -101,6 +93,7 @@ export async function GET() {
             tipoResiduo: true,
             destino: true,
             outroDestino: true,
+            origem: true,
             liberadaIncompativel: true,
             justificativaLiberacaoIncompativel: true,
           },
@@ -108,22 +101,20 @@ export async function GET() {
       },
     });
 
+    // Apenas adiciona uma flag auxiliar fora da estrutura de analises
     const caminhoesComFlag = caminhoes.map((caminhao) => {
-      const analiseComJustificativa = caminhao.analises.find(
+      const liberada = caminhao.analises.some(
         (a) => a.liberadaIncompativel && !!a.justificativaLiberacaoIncompativel
       );
       return {
         ...caminhao,
-        liberadaIncompativel: !!analiseComJustificativa,
+        liberadaIncompativel: liberada,
       };
     });
 
     return NextResponse.json(caminhoesComFlag);
   } catch (error) {
     console.error("Erro ao buscar caminhões:", error);
-    return NextResponse.json(
-      { error: "Erro interno ao buscar caminhões." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro interno ao buscar caminhões." }, { status: 500 });
   }
 }

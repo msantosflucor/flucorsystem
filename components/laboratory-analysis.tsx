@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 type TipoResiduo = "Diversos" | "Oleoso" | "Alcalino" | "Acidos" | "Lodo" | "";
 
@@ -32,6 +33,7 @@ export default function LaboratoryAnalysis() {
   const [tanque, setTanque] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [tipoResiduo, setTipoResiduo] = useState<TipoResiduo>("");
+  const [origem, setOrigem] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export default function LaboratoryAnalysis() {
     setTanque(prev => prev || ultimaAnalise?.tanque || "");
     setObservacoes(prev => prev || ultimaAnalise?.observacoes || "");
     setTipoResiduo(prev => prev || ultimaAnalise?.tipoResiduo || "");
+    setOrigem(prev => prev || ultimaAnalise?.origem || "");
     setActiveTab(selected?.carregamento ? "carregamento" : "analysis");
   };
 
@@ -146,7 +149,8 @@ export default function LaboratoryAnalysis() {
           status, 
           tanque, 
           observacoes,
-          tipoResiduo 
+          tipoResiduo,
+          origem
         }),
       });
 
@@ -163,6 +167,7 @@ export default function LaboratoryAnalysis() {
       setTanque("");
       setObservacoes("");
       setTipoResiduo("");
+      setOrigem("");
       setActiveTab("pending");
     } catch (err) {
       console.error("Erro ao registrar análise:", err);
@@ -194,6 +199,10 @@ export default function LaboratoryAnalysis() {
       case "incompatible": return "bg-red-50 border-red-300 text-red-700";
       default: return "bg-muted";
     }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return dateString ? format(new Date(dateString), "dd/MM/yyyy HH:mm") : "N/A";
   };
 
   return (
@@ -249,14 +258,16 @@ export default function LaboratoryAnalysis() {
                 <Card key={c.id}>
                   <CardHeader>
                     <CardTitle className="flex justify-between items-center gap-2">
-                    <div className="flex items-center gap-2">
-                    <span>Placa: {c.placa}</span>
-                   {c.carregamento && (
-                   <span title="Carregamento" className="text-xl">🚚📦</span>
-                   )}
-                   </div>
-                  <Badge className={statusColor(c.status)}>{statusLabel(c.status)}</Badge>
-                  </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <span>Placa: {c.placa}</span>
+                        {c.carregamento && (
+                          <span title="Carregamento" className="text-xl">🚚📦</span>
+                        )}
+                      </div>
+                      <Badge className={statusColor(c.status)}>
+                        {statusLabel(c.status)}
+                      </Badge>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm space-y-1">
                     <div><strong>Transportadora:</strong> {c.transportadora}</div>
@@ -271,16 +282,24 @@ export default function LaboratoryAnalysis() {
                     </div>
                   </CardContent>
                   <CardFooter className="flex gap-2 flex-wrap">
-                    <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>Detalhes</Button>
+                    <Button variant="secondary" onClick={() => openDetalhesDialog(c)}>
+                      Detalhes
+                    </Button>
                     {c.carregamento ? (
                       <Button onClick={() => {
                         setSelectedId(c.id);
                         setActiveTab("carregamento");
-                      }}>Analisar</Button>
+                      }}>
+                        Analisar
+                      </Button>
                     ) : !c.horaColeta ? (
-                      <Button variant="outline" onClick={() => coletarAmostra(c.id)}>Coletar</Button>
+                      <Button variant="outline" onClick={() => coletarAmostra(c.id)}>
+                        Coletar
+                      </Button>
                     ) : (
-                      <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>Analisar</Button>
+                      <Button onClick={() => handleSelecionar(c.id)} disabled={!podeAnalisar}>
+                        Analisar
+                      </Button>
                     )}
                   </CardFooter>
                 </Card>
@@ -305,24 +324,55 @@ export default function LaboratoryAnalysis() {
                 <div><strong>Placa:</strong> {sample.placa}</div>
                 <div><strong>Transportadora:</strong> {sample.transportadora}</div>
                 <div><strong>Caixa:</strong> {sample.caixa ? `${sample.caixa.nome} - ${sample.caixa.tipoResiduo}` : "N/A"}</div>
-                <div><strong>Entrada:</strong> {new Date(sample.criadoEm).toLocaleString()}</div>
+                <div><strong>Entrada:</strong> {formatDateTime(sample.criadoEm)}</div>
                 {sample.horaColeta && (
-                  <div><strong>Coleta:</strong> {new Date(sample.horaColeta).toLocaleString()}</div>
+                  <div><strong>Coleta:</strong> {formatDateTime(sample.horaColeta)}</div>
                 )}
               </div>
 
               <div className="space-y-2">
                 <Label>Status da Análise</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <Button variant={status === "approved" ? "default" : "outline"} className={status === "approved" ? "bg-green-600 text-white" : ""} onClick={() => setStatus("approved")}>Liberado</Button>
-                  <Button variant={status === "in_progress" ? "default" : "outline"} className={status === "in_progress" ? "bg-yellow-500 text-white" : ""} onClick={() => setStatus("in_progress")}>Em Análise</Button>
-                  <Button variant={status === "incompatible" ? "default" : "outline"} className={status === "incompatible" ? "bg-red-600 text-white" : ""} onClick={() => setStatus("incompatible")}>Incompatível</Button>
+                  <Button 
+                    variant={status === "approved" ? "default" : "outline"} 
+                    className={status === "approved" ? "bg-green-600 text-white" : ""} 
+                    onClick={() => setStatus("approved")}
+                  >
+                    Liberado
+                  </Button>
+                  <Button 
+                    variant={status === "in_progress" ? "default" : "outline"} 
+                    className={status === "in_progress" ? "bg-yellow-500 text-white" : ""} 
+                    onClick={() => setStatus("in_progress")}
+                  >
+                    Em Análise
+                  </Button>
+                  <Button 
+                    variant={status === "incompatible" ? "default" : "outline"} 
+                    className={status === "incompatible" ? "bg-red-600 text-white" : ""} 
+                    onClick={() => setStatus("incompatible")}
+                  >
+                    Incompatível
+                  </Button>
                 </div>
               </div>
 
               <div>
                 <Label>Tanque</Label>
-                <Input placeholder="TQ01, TQ02, etc." value={tanque} onChange={(e) => setTanque(e.target.value)} />
+                <Input 
+                  placeholder="TQ01, TQ02, etc." 
+                  value={tanque} 
+                  onChange={(e) => setTanque(e.target.value)} 
+                />
+              </div>
+
+              <div>
+                <Label>Origem</Label>
+                <Input
+                  placeholder="Unidade Araquari, Fábrica 2, etc."
+                  value={origem}
+                  onChange={(e) => setOrigem(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
@@ -343,7 +393,11 @@ export default function LaboratoryAnalysis() {
 
               <div>
                 <Label>Observações</Label>
-                <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
+                <Textarea 
+                  value={observacoes} 
+                  onChange={(e) => setObservacoes(e.target.value)} 
+                  rows={4} 
+                />
               </div>
 
               {status === "incompatible" && !observacoes && (
@@ -356,20 +410,26 @@ export default function LaboratoryAnalysis() {
               {status === "approved" && (
                 <div className="flex items-start gap-2 p-4 border border-green-300 bg-green-50 rounded-md">
                   <CheckCircle2 className="text-green-600 mt-1" />
-                  <p className="text-sm text-green-800">Amostra será enviada para o tanque <strong>{tanque}</strong>.</p>
+                  <p className="text-sm text-green-800">
+                    Amostra será enviada para o tanque <strong>{tanque}</strong>.
+                  </p>
                 </div>
               )}
             </CardContent>
 
             <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => setActiveTab("pending")}>Voltar</Button>
+              <Button variant="outline" onClick={() => setActiveTab("pending")}>
+                Voltar
+              </Button>
               <Button onClick={handleSubmit} disabled={isSubmitting}>
                 {isSubmitting ? "Registrando..." : "Registrar Análise"}
               </Button>
             </CardFooter>
           </Card>
         ) : (
-          <p className="text-muted-foreground">Nenhuma amostra selecionada ou caminhão de carregamento.</p>
+          <p className="text-muted-foreground">
+            Nenhuma amostra selecionada ou caminhão de carregamento.
+          </p>
         )}
       </TabsContent>
 
@@ -388,7 +448,7 @@ export default function LaboratoryAnalysis() {
                 <div><strong>ID:</strong> {sample.id}</div>
                 <div><strong>Placa:</strong> {sample.placa}</div>
                 <div><strong>Transportadora:</strong> {sample.transportadora}</div>
-                <div><strong>Entrada:</strong> {new Date(sample.criadoEm).toLocaleString()}</div>
+                <div><strong>Entrada:</strong> {formatDateTime(sample.criadoEm)}</div>
               </div>
 
               <div>
@@ -397,6 +457,15 @@ export default function LaboratoryAnalysis() {
                   placeholder="TQ01, IBC, Tambor..."
                   value={tanque}
                   onChange={(e) => setTanque(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Origem</Label>
+                <Input
+                  placeholder="Unidade Araquari, Fábrica 2, etc."
+                  value={origem}
+                  onChange={(e) => setOrigem(e.target.value)}
                 />
               </div>
 
@@ -481,7 +550,8 @@ export default function LaboratoryAnalysis() {
                         observacoes,
                         destino: status,
                         outroDestino: status === "Outros" ? tipoResiduo : null,
-                        tipoResiduo,
+                        tipoResiduo: tipoResiduo,
+                        origem,
                         status: "approved",
                       }),
                     });
@@ -526,7 +596,9 @@ export default function LaboratoryAnalysis() {
             </CardFooter>
           </Card>
         ) : (
-          <p className="text-muted-foreground">Nenhum caminhão de carregamento selecionado.</p>
+          <p className="text-muted-foreground">
+            Nenhum caminhão de carregamento selecionado.
+          </p>
         )}
       </TabsContent>
 
@@ -557,11 +629,11 @@ export default function LaboratoryAnalysis() {
                     : "N/A"}
                 </div>
               )}
-              <div><strong>Entrada:</strong> {new Date(selectedDetalhes.criadoEm).toLocaleString()}</div>
+              <div><strong>Entrada:</strong> {formatDateTime(selectedDetalhes.criadoEm)}</div>
               <div>
                 <strong>{selectedDetalhes.carregamento ? "Hora da Liberação" : "Hora da Coleta"}:</strong>{" "}
                 {selectedDetalhes.horaColeta
-                  ? new Date(selectedDetalhes.horaColeta).toLocaleString()
+                  ? formatDateTime(selectedDetalhes.horaColeta)
                   : selectedDetalhes.carregamento
                   ? "Aguardando liberação"
                   : "Aguardando coleta"}
@@ -569,6 +641,7 @@ export default function LaboratoryAnalysis() {
               <div><strong>Status:</strong> {statusLabel(selectedDetalhes.status)}</div>
               <div><strong>Tanque:</strong> {selectedDetalhes.analises?.[0]?.tanque || "—"}</div>
               <div><strong>Tipo de Resíduo:</strong> {selectedDetalhes.analises?.[0]?.tipoResiduo || "—"}</div>
+              <div><strong>Origem:</strong> {selectedDetalhes.analises?.[0]?.origem || "—"}</div>
               <div><strong>Observações:</strong> {selectedDetalhes.analises?.[0]?.observacoes || "—"}</div>
               {(() => {
                 const analises = selectedDetalhes.analises || [];

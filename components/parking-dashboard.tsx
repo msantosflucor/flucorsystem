@@ -47,23 +47,38 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   const [isCarregamento, setIsCarregamento] = useState(false);
   const [placaBusca, setPlacaBusca] = useState("");
   const [mostrarLegenda, setMostrarLegenda] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchTrucks = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/caminhoes");
+      const response = await fetch("/api/caminhoes", {
+        method: "GET",
+        credentials: "include",
+      });
       const data = await response.json();
-      const filtered = data.filter((item: any) =>
-        item.status !== "finalizado" && item.caixaId === null
-      );
+
+      console.log("Caminhões recebidos:", data);
+
+      const filtered = data.filter((item: any) => {
+        return (
+          !item.status.includes("finalizado") &&
+          item.status !== "liberado_para_carregar" &&
+          item.status !== "finalizando" &&
+          item.status !== "historico" &&
+          item.caixaId === null
+        );
+      });
+
       const mappedData = filtered.map((item: any) => ({
         id: item.id,
         plate: item.placa,
         motorista: item.motorista ?? "Não informado",
         transportadora: item.transportadora ?? "Não informado",
-        origin: item.origem ?? "Não informado",
+        origin: item.origem ?? (item.analises?.[0]?.origem || "Não informado"),
         box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
         destinoCaixaId: item.destinoCaixaId,
-        status: item.status ?? "waiting",
+        status: item.status,
         type: item.tipo ?? "Diversos",
         time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
         liberadaIncompativel: item.liberadaIncompativel,
@@ -71,7 +86,9 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         carregamento: item.carregamento || false,
         horaInicioCarregamento: item.horaInicioCarregamento || null,
         horaFimCarregamento: item.horaFimCarregamento || null,
+        motivoLiberacao: item.motivoLiberacao || null,
       }));
+      
       setTrucksData(mappedData);
     } catch (error) {
       console.error("Erro ao buscar caminhões:", error);
@@ -80,11 +97,15 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         description: "Não foi possível atualizar a lista de caminhões",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchTrucks();
+    const interval = setInterval(fetchTrucks, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const openDetailsDialog = async (truckId: number) => {
@@ -171,16 +192,15 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ motivo: motivoLiberacao }),
+        body: JSON.stringify({ 
+          motivo: motivoLiberacao,
+          manterStatus: selectedTruck.status === "approved" || selectedTruck.status === "liberado_para_carregar"
+        }),
       });
 
       if (!response.ok) {
-        toast({
-          title: "Erro ao liberar caminhão",
-          description: "Não foi possível concluir a operação.",
-          variant: "destructive",
-        });
-        return;
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Falha ao liberar caminhão");
       }
 
       toast({
@@ -192,8 +212,13 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       setDetailsDialogOpen(false);
       setMotivoLiberacao("");
       fetchTrucks();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao liberar caminhão:", error);
+      toast({
+        title: "Erro ao liberar caminhão",
+        description: error.message || "Erro desconhecido",
+        variant: "destructive",
+      });
     }
   };
 
@@ -202,7 +227,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       case "waiting": return "Caminhão aguardando análise.";
       case "in_progress": return "Caminhão em análise.";
       case "incompatible": return "Caminhão com amostra incompatível.";
-      case "rejected": return "Caminhão recusado.";
+      case "rejected": return "Caminhão recusado pelo laboratório.";
       default: return "Caminhão não liberado para encaminhamento.";
     }
   };
@@ -216,7 +241,9 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
 
   const getTruckBackgroundColor = (status: string) => {
     switch (status) {
-      case "approved": return "bg-green-100 border-green-300";
+      case "approved": 
+      case "liberado_para_carregar": 
+        return "bg-green-100 border-green-300";
       case "in_progress": return "bg-yellow-100 border-yellow-300";
       case "incompatible": return "bg-red-100 border-red-300";
       case "rejected": return "bg-gray-300 border-gray-400 text-black";
@@ -227,7 +254,9 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
 
   const getTruckStatusIcon = (status: string) => {
     switch (status) {
-      case "approved": return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case "approved":
+      case "liberado_para_carregar": 
+        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case "in_progress": return <Clock className="h-5 w-5 text-yellow-600" />;
       case "incompatible": return <AlertTriangle className="h-5 w-5 text-red-600" />;
       case "rejected": return <AlertTriangle className="h-5 w-5 text-gray-600" />;
@@ -238,12 +267,13 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "approved": return "Liberado";
+      case "approved": return "Liberado para Descarregar";
+      case "liberado_para_carregar": return "Liberado para Carregar";
       case "in_progress": return "Em Análise";
       case "incompatible": return "Incompatível";
       case "rejected": return "Recusado pelo Laboratório";
       case "waiting": return "Aguardando";
-      default: return "Desconhecido";
+      default: return status;
     }
   };
 
@@ -254,16 +284,13 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     const horaFormatada = agora.toLocaleTimeString("pt-BR");
     const timestamp = `${dataFormatada} ${horaFormatada}`;
 
-    // Logo no topo
     doc.addImage(logoBase64, "PNG", 10, 10, 60, 18);
 
-    // Cabeçalho
     doc.setFontSize(14);
     doc.text("Relatório de Caminhões no Pátio", 75, 20);
     doc.setFontSize(10);
     doc.text(`Gerado em: ${timestamp}`, 75, 26);
 
-    // Espaço após o cabeçalho
     doc.setFontSize(12);
     doc.text("Lista de caminhões ativos:", 14, 40);
 
@@ -271,20 +298,21 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       truck.plate,
       truck.motorista,
       truck.transportadora,
+      truck.origin,
       `${truck.time} min`,
       getStatusText(truck.status),
     ]);
 
     autoTable(doc, {
       startY: 45,
-      head: [["Placa", "Motorista", "Transportadora", "Tempo de Espera", "Status"]],
+      head: [["Placa", "Motorista", "Transportadora", "Origem", "Tempo de Espera", "Status"]],
       body: rows,
       styles: {
         fontSize: 10,
         cellPadding: 3,
       },
       headStyles: {
-        fillColor: [26, 64, 108], // Azul escuro
+        fillColor: [26, 64, 108],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
       },
@@ -300,7 +328,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   return (
     <>
       <div className="space-y-4">
-        {/* Filtros superiores */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -310,12 +337,10 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             <p className="text-muted-foreground">Visualização dos caminhões no pátio</p>
           </div>
           <div className="flex flex-wrap gap-2 items-end">
-            {/* Botão Gerar PDF */}
             <Button variant="outline" className="h-[38px]" onClick={gerarPDF}>
               Gerar PDF
             </Button>
 
-            {/* Botão de ajuda */}
             <Button
               variant="ghost"
               className="h-[38px] px-2"
@@ -325,7 +350,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
               <Info className="w-4 h-4" />
             </Button>
 
-            {/* Filtro Status */}
             <div className="w-[160px]">
               <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status</label>
               <select
@@ -337,13 +361,13 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 <option value="all">Todos os status</option>
                 <option value="waiting">Aguardando</option>
                 <option value="in_progress">Em Análise</option>
-                <option value="approved">Liberado</option>
+                <option value="approved">Liberado para Descarregar</option>
+                <option value="liberado_para_carregar">Liberado para Carregar</option>
                 <option value="incompatible">Incompatível</option>
                 <option value="rejected">Recusado</option>
               </select>
             </div>
 
-            {/* Filtro Tipo */}
             <div className="w-[160px]">
               <label htmlFor="type-filter" className="block text-sm font-medium mb-1">Tipo</label>
               <select
@@ -361,7 +385,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
               </select>
             </div>
 
-            {/* Filtro Placa */}
             <div className="w-[200px]">
               <label htmlFor="placa-filter" className="block text-sm font-medium mb-1">Buscar Placa</label>
               <input
@@ -376,7 +399,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
           </div>
         </div>
 
-        {/* Grid de caminhões */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -387,67 +409,72 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {filteredTrucks.map((truck) => {
-                const isCarregamento = truck.carregamento === true;
-                return (
-                  <div
-                    key={truck.id}
-                    className={`relative rounded-md border p-3 ${
-                      isCarregamento 
-                        ? truck.status === "rejected"
-                          ? "bg-gray-300 border-gray-400"
-                          : "bg-cyan-100 border-cyan-400"
-                        : getTruckBackgroundColor(truck.status)
-                    }`}
-                  >
-                    <div className="absolute top-2 right-2 flex items-center gap-1">
-                      {isCarregamento && (
-                        <span title="Caminhão de Carregamento" className="text-lg">
-                          🚚📦
-                        </span>
-                      )}
-                      {getTruckStatusIcon(truck.status)}
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-5 w-5" />
-                        <span className="font-bold">{truck.plate}</span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        {truck.type && truck.type !== "Diversos" && (
-                          <Badge variant="outline" className="w-fit font-medium text-sm">
-                            {truck.type}
-                          </Badge>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {filteredTrucks.map((truck) => {
+                  const isCarregamento = truck.carregamento === true;
+                  return (
+                    <div
+                      key={truck.id}
+                      className={`relative rounded-md border p-3 ${
+                        isCarregamento 
+                          ? truck.status === "rejected"
+                            ? "bg-gray-300 border-gray-400"
+                            : "bg-cyan-100 border-cyan-400"
+                          : getTruckBackgroundColor(truck.status)
+                      }`}
+                    >
+                      <div className="absolute top-2 right-2 flex items-center gap-1">
+                        {isCarregamento && (
+                          <span title="Caminhão de Carregamento" className="text-lg">
+                            🚚📦
+                          </span>
                         )}
-                        {truck.box && (
-                          <span className="text-xs font-medium">{truck.box}</span>
-                        )}
+                        {getTruckStatusIcon(truck.status)}
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span>{truck.time} min</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-5 w-5" />
+                          <span className="font-bold">{truck.plate}</span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => openDetailsDialog(truck.id)}
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          {truck.type && truck.type !== "Diversos" && (
+                            <Badge variant="outline" className="w-fit font-medium text-sm">
+                              {truck.type}
+                            </Badge>
+                          )}
+                          {truck.box && (
+                            <span className="text-xs font-medium">{truck.box}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{truck.time} min</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => openDetailsDialog(truck.id)}
+                          >
+                            <Info className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Modal de detalhes */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -460,7 +487,10 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
           {selectedTruck && (
             <div className="space-y-4 py-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-lg">{selectedTruck.plate}</h3>
+                <div>
+                  <h3 className="font-medium text-lg">{selectedTruck.plate}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedTruck.motorista}</p>
+                </div>
                 <div className="flex gap-2 items-center">
                   {getTruckStatusIcon(selectedTruck.status)}
                   <span>{getStatusText(selectedTruck.status)}</span>
@@ -573,7 +603,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                     Liberar caminhão
                   </Button>
                   {!selectedTruck.horaInicioCarregamento ? (
-                    selectedTruck.status === "approved" ? (
+                    selectedTruck.status === "approved" || selectedTruck.status === "liberado_para_carregar" ? (
                       <Button
                         onClick={async () => {
                           try {
@@ -670,7 +700,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         </DialogContent>
       </Dialog>
 
-      {/* Modal de liberação */}
       <Dialog open={showLiberarModal} onOpenChange={setShowLiberarModal}>
         <DialogContent>
           <DialogHeader>
@@ -695,7 +724,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Legenda */}
       <Dialog open={mostrarLegenda} onOpenChange={setMostrarLegenda}>
         <DialogContent>
           <DialogHeader>
