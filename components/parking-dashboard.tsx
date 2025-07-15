@@ -43,7 +43,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
   const [typeFilter, setTypeFilter] = useState("all");
   const [showLiberarModal, setShowLiberarModal] = useState(false);
   const [motivoLiberacao, setMotivoLiberacao] = useState("");
-  const [analise, setAnalise] = useState<any>(null);
   const [isCarregamento, setIsCarregamento] = useState(false);
   const [placaBusca, setPlacaBusca] = useState("");
   const [mostrarLegenda, setMostrarLegenda] = useState(false);
@@ -58,8 +57,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       });
       const data = await response.json();
 
-      console.log("Caminhões recebidos:", data);
-
       const filtered = data.filter((item: any) => {
         return (
           !item.status.includes("finalizado") &&
@@ -70,25 +67,30 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
         );
       });
 
-      const mappedData = filtered.map((item: any) => ({
-        id: item.id,
-        plate: item.placa,
-        motorista: item.motorista ?? "Não informado",
-        transportadora: item.transportadora ?? "Não informado",
-        origin: item.origem ?? (item.analises?.[0]?.origem || "Não informado"),
-        box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
-        destinoCaixaId: item.destinoCaixaId,
-        status: item.status,
-        type: item.tipo ?? "Diversos",
-        time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
-        liberadaIncompativel: item.liberadaIncompativel,
-        analises: item.analises || [],
-        carregamento: item.carregamento || false,
-        horaInicioCarregamento: item.horaInicioCarregamento || null,
-        horaFimCarregamento: item.horaFimCarregamento || null,
-        motivoLiberacao: item.motivoLiberacao || null,
-      }));
-      
+	const mappedData = filtered.map((item: any) => {
+	  const ultimaAnalise = item.analises?.[0] || null;
+	  return {
+	    id: item.id,
+	    plate: item.placa,
+	    motorista: item.motorista ?? "Não informado",
+	    transportadora: item.transportadora ?? "Não informado",
+	    origin: ultimaAnalise?.origem || item.origem || "Não informado",
+	    box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
+	    destinoCaixaId: item.destinoCaixaId,
+	    status: item.status,
+	    type: ultimaAnalise?.tipoResiduo || item.tipo || "Diversos",
+	    time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
+	    liberadaIncompativel: item.liberadaIncompativel,
+	    analises: item.analises || [],
+	    carregamento: item.carregamento || false,
+	    horaInicioCarregamento: item.horaInicioCarregamento || null,
+	    horaFimCarregamento: item.horaFimCarregamento || null,
+	    motivoLiberacao: item.motivoLiberacao || null,
+	    observacoes: ultimaAnalise?.observacoes || "",
+	    tanque: ultimaAnalise?.tanque || ""
+	  };
+	});
+
       setTrucksData(mappedData);
     } catch (error) {
       console.error("Erro ao buscar caminhões:", error);
@@ -114,21 +116,16 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     setSelectedTruck(truck);
     setIsCarregamento(truck.carregamento === true);
     setCaixaSelecionada(truck.destinoCaixaId ? String(truck.destinoCaixaId) : null);
-    
-    const ultimaAnalise = truck.analises?.[0] || null;
-    setAnalise(ultimaAnalise);
-    
     setDetailsDialogOpen(true);
+    
     try {
       const response = await fetch("/api/caixas");
       const data = await response.json();
-
       const caixasLimpas = data.map((caixa: any) => ({
         id: caixa.id,
         nome: typeof caixa.nome === "string" ? caixa.nome : JSON.stringify(caixa.nome),
         status: typeof caixa.status === "string" ? caixa.status : JSON.stringify(caixa.status),
       }));
-
       setCaixasDisponiveis(caixasLimpas);
     } catch (error) {
       console.error("Erro ao buscar caixas:", error);
@@ -299,7 +296,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       truck.motorista,
       truck.transportadora,
       truck.origin,
-      `${truck.time} min`,
+      `${Math.floor(truck.time)} min`,
       getStatusText(truck.status),
     ]);
 
@@ -340,7 +337,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             <Button variant="outline" className="h-[38px]" onClick={gerarPDF}>
               Gerar PDF
             </Button>
-
             <Button
               variant="ghost"
               className="h-[38px] px-2"
@@ -349,7 +345,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             >
               <Info className="w-4 h-4" />
             </Button>
-
             <div className="w-[160px]">
               <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Status</label>
               <select
@@ -367,7 +362,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 <option value="rejected">Recusado</option>
               </select>
             </div>
-
             <div className="w-[160px]">
               <label htmlFor="type-filter" className="block text-sm font-medium mb-1">Tipo</label>
               <select
@@ -384,7 +378,6 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 <option value="Lodo">Lodo</option>
               </select>
             </div>
-
             <div className="w-[200px]">
               <label htmlFor="placa-filter" className="block text-sm font-medium mb-1">Buscar Placa</label>
               <input
@@ -454,7 +447,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>{truck.time} min</span>
+                            <span>{Math.floor(truck.time)} min</span>
                           </div>
                           <Button
                             variant="ghost"
@@ -504,17 +497,15 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tipo de Resíduo</div>
-                  <div className="font-medium">
-                    {analise?.tipoResiduo || "Aguardando análise"}
-                  </div>
+                  <div className="font-medium">{selectedTruck.type || "—"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tempo de Espera</div>
-                  <div className="font-medium">{selectedTruck.time} minutos</div>
+                  <div className="font-medium">{Math.floor(selectedTruck.time)} minutos</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Origem</div>
-                  <div className="font-medium">{selectedTruck.origin}</div>
+                  <div className="font-medium">{selectedTruck.origin || "—"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Motorista</div>
@@ -523,6 +514,14 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                 <div>
                   <div className="text-sm text-gray-500">Transportadora</div>
                   <div className="font-medium">{selectedTruck.transportadora}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Tanque</div>
+                  <div className="font-medium">{selectedTruck.tanque || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Observações</div>
+                  <div className="font-medium">{selectedTruck.observacoes || "—"}</div>
                 </div>
               </div>
 

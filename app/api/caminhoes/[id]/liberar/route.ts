@@ -27,28 +27,26 @@ export async function PATCH(req: NextRequest, context: any) {
       return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
     }
 
-    // Atualiza o status e registra como manual
+    // Atualiza status e marca como manual
     await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
         status: "finalizado",
-        manual: true, // ← IMPORTANTE
+        manual: true,
       },
     });
 
-    // Registra a análise finalizada com motivo, tanque e observações
+    // Cria análise com motivo
     await prisma.analise.create({
       data: {
-        caminhaoId: caminhaoId,
+        caminhaoId,
         status: "finalizado",
-        motivoLiberacaoSemDescarga: motivo,
         tanque: "liberação sem descarga",
         observacoes: "liberação sem descarregamento",
-        criadoEm: new Date(),
+        motivoLiberacaoSemDescarga: motivo, // campo correto
       },
     });
 
-    // Log de usuário
     await registrarLog({
       usuarioId: usuario.id,
       acao: `Liberou caminhão ${caminhao.placa} sem descarregar. Motivo: ${motivo}`,
