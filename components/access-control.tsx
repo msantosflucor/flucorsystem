@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import {
   Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  Input,
+} from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -23,99 +25,9 @@ import { Calendar } from "@/components/ui/calendar";
 import jsPDF from "jspdf";
 import logoBase64 from "@/lib/logo-base64-validado";
 
-// Type definitions
-interface Veiculo {
-  placa: string;
-  modelo: string;
-  cor: string;
-}
-
-interface Colaborador {
-  id: number;
-  nome: string;
-  documento: string;
-  tipoCombustivel?: string;
-  litrosCombustivel?: number;
-  veiculos?: Veiculo[];
-}
-
-interface Acesso {
-  id: number;
-  nomePessoa: string;
-  documentoPessoa: string;
-  empresaOuSetor?: string;
-  pessoaSolicitante?: string;
-  tipo: 'VEICULO' | 'PEDESTRE';
-  placaVeiculo?: string | null;
-  dataEntrada: string;
-  dataSaida?: string;
-}
-
-interface AccessForm {
-  nomePessoa: string;
-  documentoPessoa: string;
-  empresaOuSetor: string;
-  pessoaSolicitante: string;
-  possuiVeiculo: boolean;
-  placaVeiculo: string;
-}
-
-// API Service functions
-const fetchAcessos = async (): Promise<Acesso[]> => {
-  const res = await fetch("/api/acessos");
-  if (!res.ok) throw new Error("Failed to fetch access records");
-  return res.json();
-};
-
-const fetchColaboradores = async (): Promise<Colaborador[]> => {
-  const res = await fetch("/api/colaboradores");
-  if (!res.ok) throw new Error("Failed to fetch employees");
-  const data = await res.json();
-  return data.colaboradores || [];
-};
-
-const registrarAcesso = async (dados: Omit<Acesso, 'id' | 'dataEntrada' | 'dataSaida'>): Promise<Acesso> => {
-  const res = await fetch("/api/acessos", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(dados),
-  });
-  if (!res.ok) throw new Error("Failed to register access");
-  return res.json();
-};
-
-const registrarSaidaAPI = async (id: number): Promise<Acesso> => {
-  const res = await fetch(`/api/acessos/${id}/saida`, { method: "PATCH" });
-  if (!res.ok) throw new Error("Failed to register exit");
-  return res.json();
-};
-
-// PDF Generation utilities
-const generateFuelTicketsPDF = (
-  colaboradores: Colaborador[],
-  options?: {
-    startDate?: Date;
-    endDate?: Date;
-  }
-): jsPDF => {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const hoje = new Date();
-  const validade = options?.endDate || new Date(hoje);
-  validade.setDate(validade.getDate() + 6);
-  
-  const validadeTexto = options?.startDate && options.endDate 
-    ? `${options.startDate.toLocaleDateString("pt-BR")} até ${options.endDate.toLocaleDateString("pt-BR")}`
-    : `${hoje.toLocaleDateString("pt-BR")} até ${validade.toLocaleDateString("pt-BR")}`;
-
-  // ... rest of the PDF generation logic (same as original)
-  return doc;
-};
-
-// Main Component
 export default function AccessControl() {
   const { toast } = useToast();
-  const [form, setForm] = useState<AccessForm>({
+  const [form, setForm] = useState({
     nomePessoa: "",
     documentoPessoa: "",
     empresaOuSetor: "",
@@ -123,11 +35,10 @@ export default function AccessControl() {
     possuiVeiculo: false,
     placaVeiculo: "",
   });
-  
-  const [acessos, setAcessos] = useState<Acesso[]>([]);
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [acessos, setAcessos] = useState<any[]>([]);
+  const [colaboradores, setColaboradores] = useState<any[]>([]);
   const [buscaPlaca, setBuscaPlaca] = useState("");
-  const [selectedAccess, setSelectedAccess] = useState<Acesso | null>(null);
+  const [selectedAccess, setSelectedAccess] = useState<any | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
   const [activeTab, setActiveTab] = useState("register");
   const [dataFiltro, setDataFiltro] = useState<Date | null>(new Date());
@@ -135,37 +46,31 @@ export default function AccessControl() {
   const [modalTicketPersonalizado, setModalTicketPersonalizado] = useState(false);
   const [dataInicioValidade, setDataInicioValidade] = useState<Date | null>(new Date());
   const [dataFimValidade, setDataFimValidade] = useState<Date | null>(null);
-  const [loading, setLoading] = useState({
-    acessos: false,
-    colaboradores: false,
-    registro: false,
-  });
 
-  // Fetch data on mount
+  const fetchAcessos = async () => {
+    try {
+      const res = await fetch("/api/acessos");
+      const data = await res.json();
+      setAcessos(data);
+    } catch (error) {
+      console.error("Erro ao buscar acessos:", error);
+    }
+  };
+
+  const fetchColaboradores = async () => {
+    try {
+      const res = await fetch("/api/colaboradores");
+      const data = await res.json();
+      setColaboradores(data.colaboradores || []);
+    } catch (error) {
+      console.error("Erro ao buscar colaboradores:", error);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(prev => ({...prev, acessos: true, colaboradores: true}));
-        const [acessosData, colaboradoresData] = await Promise.all([
-          fetchAcessos(),
-          fetchColaboradores()
-        ]);
-        setAcessos(acessosData);
-        setColaboradores(colaboradoresData);
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Falha ao carregar dados",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(prev => ({...prev, acessos: false, colaboradores: false}));
-      }
-    };
-
-    loadData();
-
-    // Get user role
+    fetchAcessos();
+    fetchColaboradores();
+    
     fetch("/api/auth/session", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
@@ -174,29 +79,16 @@ export default function AccessControl() {
         if (role === "LOGISTICA") setActiveTab("placas");
       })
       .catch(() => setUserRole(null));
-  }, [toast]);
+  }, []);
 
-  // Filtered employees
-  const colaboradoresFiltrados = useMemo(() => {
-    const busca = buscaPlaca.toLowerCase();
-    return colaboradores.filter((c) => {
-      const nomeMatch = c.nome?.toLowerCase().includes(busca);
-      const placaMatch = c.veiculos?.some((v) =>
-        v.placa?.toLowerCase().includes(busca)
-      );
-      return nomeMatch || placaMatch;
-    });
-  }, [colaboradores, buscaPlaca]);
-
-  // Calculate time spent
-  const calcularTempoTotal = (entrada: string, saida: string) => {
-    const e = new Date(entrada);
-    const s = new Date(saida);
-    const diff = Math.floor((s.getTime() - e.getTime()) / 60000);
-    return `${diff} min`;
+  const gerarRelatorioPDF = () => {
+    const params = new URLSearchParams();
+    if (dataFiltro) {
+      params.append("data", format(dataFiltro, "yyyy-MM-dd"));
+    }
+    window.open(`/api/relatorios/acessos-pdf?${params.toString()}`, "_blank");
   };
 
-  // Handlers
   const registrarEntrada = async () => {
     if (!form.nomePessoa || !form.documentoPessoa) {
       toast({
@@ -217,15 +109,20 @@ export default function AccessControl() {
     }
 
     try {
-      setLoading(prev => ({...prev, registro: true}));
-      await registrarAcesso({
-        nomePessoa: form.nomePessoa,
-        documentoPessoa: form.documentoPessoa,
-        empresaOuSetor: form.empresaOuSetor,
-        pessoaSolicitante: form.pessoaSolicitante,
-        tipo: form.possuiVeiculo ? "VEICULO" : "PEDESTRE",
-        placaVeiculo: form.possuiVeiculo ? form.placaVeiculo : null,
+      const res = await fetch("/api/acessos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nomePessoa: form.nomePessoa,
+          documentoPessoa: form.documentoPessoa,
+          empresaOuSetor: form.empresaOuSetor,
+          pessoaSolicitante: form.pessoaSolicitante,
+          tipo: form.possuiVeiculo ? "VEICULO" : "PEDESTRE",
+          placaVeiculo: form.possuiVeiculo ? form.placaVeiculo : null,
+        }),
       });
+
+      if (!res.ok) throw new Error("Falha no registro");
 
       toast({ title: "Entrada registrada com sucesso!" });
       setForm({
@@ -243,18 +140,15 @@ export default function AccessControl() {
         description: "Erro ao registrar entrada.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(prev => ({...prev, registro: false}));
     }
   };
 
   const registrarSaida = async (id: number) => {
     try {
-	const saidaAtualizada = await registrarSaidaAPI(id);
-	toast({ title: "Saída registrada com sucesso!" });
-	setAcessos((prev) =>
-	  prev.map((a) => (a.id === id ? { ...a, dataSaida: saidaAtualizada.dataSaida } : a))
-	);
+      const res = await fetch(`/api/acessos/${id}/saida`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Erro ao registrar saída");
+      toast({ title: "Saída registrada com sucesso!" });
+      fetchAcessos();
     } catch {
       toast({
         title: "Erro",
@@ -264,55 +158,207 @@ export default function AccessControl() {
     }
   };
 
-  const abrirDetalhes = (acesso: Acesso) => {
+  const abrirDetalhes = (acesso: any) => {
     setSelectedAccess(acesso);
     setModalAberto(true);
   };
 
-  const gerarRelatorioPDF = () => {
-    const params = new URLSearchParams();
-    if (dataFiltro) {
-      params.append("data", format(dataFiltro, "yyyy-MM-dd"));
-    }
-    window.open(`/api/relatorios/acessos-pdf?${params.toString()}`, "_blank");
+  const calcularTempoTotal = (entrada: string, saida: string) => {
+    const e = new Date(entrada);
+    const s = new Date(saida);
+    const diff = Math.floor((s.getTime() - e.getTime()) / 60000);
+    return `${diff} min`;
   };
 
   const gerarTicketsCombustivelPDF = () => {
-    try {
-      const doc = generateFuelTicketsPDF(colaboradoresFiltrados);
-      const hoje = new Date();
-      const dataHojeStr = hoje.toLocaleDateString("pt-BR").replace(/\//g, "-");
-      const horaStr = hoje.toLocaleTimeString("pt-BR").replace(/:/g, "-");
-      doc.save(`tickets-combustivel-${dataHojeStr}-${horaStr}.pdf`);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao gerar PDF",
-        variant: "destructive",
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const hoje = new Date();
+    const validade = new Date(hoje);
+    validade.setDate(validade.getDate() + 6);
+    const validadeTexto = `${hoje.toLocaleDateString("pt-BR")} até ${validade.toLocaleDateString("pt-BR")}`;
+    const dataHojeStr = hoje.toLocaleDateString("pt-BR").replace(/\//g, "-");
+    const horaStr = hoje.toLocaleTimeString("pt-BR").replace(/:/g, "-");
+
+    const marginX = 10;
+    const marginY = 10;
+    const ticketWidth = 63;
+    const ticketHeight = 90;
+    const spacingX = 0.5;
+    const spacingY = 0.5;
+    const ticketsPerRow = 3;
+    const ticketsPerPage = 9;
+
+    let ticketCount = 0;
+
+    colaboradoresFiltrados.forEach((colab) => {
+      colab.veiculos?.forEach((veiculo: any) => {
+        if (ticketCount > 0 && ticketCount % ticketsPerPage === 0) doc.addPage();
+
+        const row = Math.floor((ticketCount % ticketsPerPage) / ticketsPerRow);
+        const col = ticketCount % ticketsPerRow;
+
+        const x = marginX + col * (ticketWidth + spacingX);
+        const y = marginY + row * (ticketHeight + spacingY);
+
+        const tipoComb = colab.tipoCombustivel?.trim()?.toUpperCase() || "NÃO ESPECIFICADO";
+        const litrosComb = colab.litrosCombustivel ? `${colab.litrosCombustivel} LITROS` : "NÃO DEFINIDO";
+
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.2);
+        doc.rect(x, y, ticketWidth, ticketHeight);
+
+        const logoW = 29;
+        const logoH = 10;
+        const logoX = x + (ticketWidth - logoW) / 2;
+        doc.addImage(logoBase64, "PNG", logoX, y + 3, logoW, logoH);
+
+        doc.setFillColor(0, 0, 0);
+        doc.rect(x, y + 14, ticketWidth, 7, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.text("CUPOM DE ABASTECIMENTO", x + ticketWidth / 2, y + 19, { align: "center" });
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const camposYStart = y + 21;
+        const camposYEnd = y + 48;
+        const campoHeight = 5.5;
+        const totalCamposAltura = 4 * campoHeight;
+        let currentY = camposYStart + ((camposYEnd - camposYStart - totalCamposAltura) / 2) + 2;
+        doc.text(`Nome: ${colab.nome || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Placa: ${veiculo.placa || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Veículo: ${veiculo.modelo || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Cor: ${veiculo.cor || "-"}`, x + 4, currentY); currentY += campoHeight;
+
+        const redY = currentY + 2;
+        doc.setFillColor(200, 0, 0);
+        doc.rect(x, redY, ticketWidth, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`Combustível: ${tipoComb}`, x + ticketWidth / 2, redY + 5.5, { align: "center" });
+
+        currentY = redY + 13;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Quantidade: ${litrosComb}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Válido: ${validadeTexto}`, x + 4, currentY); currentY += campoHeight;
+
+        const linhaY = currentY + 8;
+        doc.setLineWidth(0.1);
+        doc.line(x + 8, linhaY, x + ticketWidth - 8, linhaY);
+        doc.setFontSize(7);
+        doc.text("Assinatura/Carimbo", x + ticketWidth / 2, linhaY + 3, { align: "center" });
+
+        ticketCount++;
       });
-    }
+    });
+
+    doc.save(`tickets-combustivel-${dataHojeStr}-${horaStr}.pdf`);
   };
 
   const gerarTicketsPersonalizadosPDF = (dataInicio: Date, dataFim: Date) => {
-    try {
-      const doc = generateFuelTicketsPDF(colaboradoresFiltrados, {
-        startDate: dataInicio,
-        endDate: dataFim
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const hoje = new Date();
+    const dataHojeStr = hoje.toLocaleDateString("pt-BR").replace(/\//g, "-");
+    const horaStr = hoje.toLocaleTimeString("pt-BR").replace(/:/g, "-");
+    const validadeTexto = `${dataInicio.toLocaleDateString("pt-BR")} até ${dataFim.toLocaleDateString("pt-BR")}`;
+
+    const marginX = 10;
+    const marginY = 10;
+    const ticketWidth = 63;
+    const ticketHeight = 90;
+    const spacingX = 0.5;
+    const spacingY = 0.5;
+    const ticketsPerRow = 3;
+    const ticketsPerPage = 9;
+
+    let ticketCount = 0;
+
+    colaboradoresFiltrados.forEach((colab) => {
+      colab.veiculos?.forEach((veiculo: any) => {
+        if (ticketCount > 0 && ticketCount % ticketsPerPage === 0) doc.addPage();
+
+        const row = Math.floor((ticketCount % ticketsPerPage) / ticketsPerRow);
+        const col = ticketCount % ticketsPerRow;
+
+        const x = marginX + col * (ticketWidth + spacingX);
+        const y = marginY + row * (ticketHeight + spacingY);
+
+        const tipoComb = colab.tipoCombustivel?.trim()?.toUpperCase() || "NÃO ESPECIFICADO";
+        const litrosComb = colab.litrosCombustivel ? `${colab.litrosCombustivel} LITROS` : "NÃO DEFINIDO";
+
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.2);
+        doc.rect(x, y, ticketWidth, ticketHeight);
+
+        const logoW = 29;
+        const logoH = 10;
+        const logoX = x + (ticketWidth - logoW) / 2;
+        doc.addImage(logoBase64, "PNG", logoX, y + 3, logoW, logoH);
+
+        doc.setFillColor(0, 0, 0);
+        doc.rect(x, y + 14, ticketWidth, 7, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.text("CUPOM DE ABASTECIMENTO", x + ticketWidth / 2, y + 19, { align: "center" });
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const camposYStart = y + 21;
+        const camposYEnd = y + 48;
+        const campoHeight = 5.5;
+        const totalCamposAltura = 4 * campoHeight;
+        let currentY = camposYStart + ((camposYEnd - camposYStart - totalCamposAltura) / 2) + 2;
+        doc.text(`Nome: ${colab.nome || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Placa: ${veiculo.placa || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Veículo: ${veiculo.modelo || "-"}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Cor: ${veiculo.cor || "-"}`, x + 4, currentY); currentY += campoHeight;
+
+        const redY = currentY + 2;
+        doc.setFillColor(200, 0, 0);
+        doc.rect(x, redY, ticketWidth, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`Combustível: ${tipoComb}`, x + ticketWidth / 2, redY + 5.5, { align: "center" });
+
+        currentY = redY + 13;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Quantidade: ${litrosComb}`, x + 4, currentY); currentY += campoHeight;
+        doc.text(`Válido: ${validadeTexto}`, x + 4, currentY); currentY += campoHeight;
+
+        const linhaY = currentY + 8;
+        doc.setLineWidth(0.1);
+        doc.line(x + 8, linhaY, x + ticketWidth - 8, linhaY);
+        doc.setFontSize(7);
+        doc.text("Assinatura/Carimbo", x + ticketWidth / 2, linhaY + 3, { align: "center" });
+
+        ticketCount++;
       });
-      const hoje = new Date();
-      const dataHojeStr = hoje.toLocaleDateString("pt-BR").replace(/\//g, "-");
-      const horaStr = hoje.toLocaleTimeString("pt-BR").replace(/:/g, "-");
-      doc.save(`tickets-personalizados-${dataHojeStr}-${horaStr}.pdf`);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao gerar PDF",
-        variant: "destructive",
-      });
-    }
+    });
+
+    doc.save(`tickets-personalizados-${dataHojeStr}-${horaStr}.pdf`);
   };
 
-  // Render
+  const colaboradoresFiltrados = colaboradores.filter((c) => {
+    const busca = buscaPlaca.toLowerCase();
+    const nomeMatch = c.nome?.toLowerCase().includes(busca);
+    const placaMatch = c.veiculos?.some((v: any) =>
+      v.placa?.toLowerCase().includes(busca)
+    );
+    return nomeMatch || placaMatch;
+  });
+
   return (
     <Card className="max-w-2xl mx-auto">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -326,7 +372,6 @@ export default function AccessControl() {
           <TabsTrigger value="placas">Placas Cadastradas</TabsTrigger>
         </TabsList>
 
-        {/* Registration Tab */}
         {userRole !== "LOGISTICA" && (
           <TabsContent value="register">
             <CardHeader>
@@ -341,61 +386,37 @@ export default function AccessControl() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Nome completo *</Label>
-                <Input 
-                  value={form.nomePessoa} 
-                  onChange={(e) => setForm({ ...form, nomePessoa: e.target.value })} 
-                />
+                <Input value={form.nomePessoa} onChange={(e) => setForm({ ...form, nomePessoa: e.target.value })} />
               </div>
               <div>
                 <Label>Documento (RG ou CPF) *</Label>
-                <Input 
-                  value={form.documentoPessoa} 
-                  onChange={(e) => setForm({ ...form, documentoPessoa: e.target.value })} 
-                />
+                <Input value={form.documentoPessoa} onChange={(e) => setForm({ ...form, documentoPessoa: e.target.value })} />
               </div>
               <div>
                 <Label>Empresa ou Setor</Label>
-                <Input 
-                  value={form.empresaOuSetor} 
-                  onChange={(e) => setForm({ ...form, empresaOuSetor: e.target.value })} 
-                />
+                <Input value={form.empresaOuSetor} onChange={(e) => setForm({ ...form, empresaOuSetor: e.target.value })} />
               </div>
               <div>
                 <Label>Pessoa Solicitante (opcional)</Label>
-                <Input 
-                  value={form.pessoaSolicitante} 
-                  onChange={(e) => setForm({ ...form, pessoaSolicitante: e.target.value })} 
-                />
+                <Input value={form.pessoaSolicitante} onChange={(e) => setForm({ ...form, pessoaSolicitante: e.target.value })} />
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  checked={form.possuiVeiculo} 
-                  onCheckedChange={(checked) => setForm({ ...form, possuiVeiculo: !!checked })} 
-                />
+                <Checkbox checked={form.possuiVeiculo} onCheckedChange={(checked) => setForm({ ...form, possuiVeiculo: !!checked })} />
                 <Label>Possui veículo</Label>
               </div>
               {form.possuiVeiculo && (
                 <div>
                   <Label>Placa do Veículo *</Label>
-                  <Input 
-                    value={form.placaVeiculo} 
-                    onChange={(e) => setForm({ ...form, placaVeiculo: e.target.value })} 
-                  />
+                  <Input value={form.placaVeiculo} onChange={(e) => setForm({ ...form, placaVeiculo: e.target.value })} />
                 </div>
               )}
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button 
-                onClick={registrarEntrada}
-                disabled={loading.registro}
-              >
-                {loading.registro ? "Registrando..." : "Registrar Entrada"}
-              </Button>
+              <Button onClick={registrarEntrada}>Registrar Entrada</Button>
             </CardFooter>
           </TabsContent>
         )}
 
-        {/* History Tab */}
         {userRole !== "LOGISTICA" && (
           <TabsContent value="history">
             <CardHeader>
@@ -424,60 +445,47 @@ export default function AccessControl() {
                   </PopoverContent>
                 </Popover>
 
-                <Button 
-                  variant="outline" 
-                  onClick={gerarRelatorioPDF} 
-                  className="flex items-center gap-2"
-                >
+                <Button variant="outline" onClick={gerarRelatorioPDF} className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
                   Gerar Relatório
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {loading.acessos ? (
-                <p>Carregando histórico...</p>
-              ) : (
-                acessos
-                  .filter((a) => {
-                    if (!dataFiltro) return true;
-                    const d = new Date(a.dataEntrada);
-                    return d.toDateString() === dataFiltro.toDateString();
-                  })
-                  .map((a) => (
-                    <div key={a.id} className="border rounded-md p-3 flex justify-between items-center">
-                      <div className="space-y-1 text-sm">
-                        <p className="font-semibold">{a.nomePessoa}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {a.documentoPessoa}
-                          {a.placaVeiculo ? ` - Placa ${a.placaVeiculo}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={a.dataSaida ? "secondary" : "default"}>
-                          {a.dataSaida ? "Saiu" : "Na fábrica"}
-                        </Badge>
-                        <Button variant="ghost" size="icon" onClick={() => abrirDetalhes(a)}>
-                          <Info className="w-4 h-4" />
-                        </Button>
-                        {!a.dataSaida && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => registrarSaida(a.id)}
-                          >
-                            Registrar Saída
-                          </Button>
-                        )}
-                      </div>
+              {acessos
+                .filter((a) => {
+                  if (!dataFiltro) return true;
+                  const d = new Date(a.dataEntrada);
+                  return d.toDateString() === dataFiltro.toDateString();
+                })
+                .map((a) => (
+                  <div key={a.id} className="border rounded-md p-3 flex justify-between items-center">
+                    <div className="space-y-1 text-sm">
+                      <p className="font-semibold">{a.nomePessoa}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {a.documentoPessoa}
+                        {a.placaVeiculo ? ` - Placa ${a.placaVeiculo}` : ""}
+                      </p>
                     </div>
-                  ))
-              )}
+                    <div className="flex items-center gap-2">
+                      <Badge variant={a.dataSaida ? "secondary" : "default"}>
+                        {a.dataSaida ? "Saiu" : "Na fábrica"}
+                      </Badge>
+                      <Button variant="ghost" size="icon" onClick={() => abrirDetalhes(a)}>
+                        <Info className="w-4 h-4" />
+                      </Button>
+                      {!a.dataSaida && (
+                        <Button variant="outline" size="sm" onClick={() => registrarSaida(a.id)}>
+                          Registrar Saída
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
             </CardContent>
           </TabsContent>
         )}
 
-        {/* Plates Tab */}
         <TabsContent value="placas">
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -495,10 +503,7 @@ export default function AccessControl() {
             <div className="flex justify-end mt-2 gap-2">
               {(userRole === "SYSADMIN" || userRole === "LOGISTICA") && (
                 <>
-                  <Button 
-                    variant="outline" 
-                    onClick={gerarTicketsCombustivelPDF}
-                  >
+                  <Button variant="outline" onClick={gerarTicketsCombustivelPDF}>
                     Gerar Ticket Combustível
                   </Button>
                   <Button
@@ -512,9 +517,7 @@ export default function AccessControl() {
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {loading.colaboradores ? (
-              <p>Carregando colaboradores...</p>
-            ) : colaboradoresFiltrados.length === 0 ? (
+            {colaboradoresFiltrados.length === 0 ? (
               <p className="text-muted-foreground">Nenhum colaborador encontrado.</p>
             ) : (
               colaboradoresFiltrados.map((colab) => (
@@ -524,7 +527,7 @@ export default function AccessControl() {
                   </CardHeader>
                   <CardContent className="text-sm space-y-1">
                     <p><strong>Documento:</strong> {colab.documento}</p>
-                    {colab.veiculos?.map((v, idx) => (
+                    {colab.veiculos?.map((v: any, idx: number) => (
                       <div key={idx} className="border-t pt-1 mt-1">
                         <p><strong>Placa:</strong> {v.placa}</p>
                         <p><strong>Modelo:</strong> {v.modelo}</p>
@@ -547,16 +550,21 @@ export default function AccessControl() {
                           variant="default"
                           onClick={async () => {
                             try {
-                              const novoAcesso = await registrarAcesso({
-                                nomePessoa: colab.nome,
-                                documentoPessoa: colab.documento,
-                                empresaOuSetor: "",
-                                pessoaSolicitante: "",
-                                tipo: colab.veiculos?.length > 0 ? "VEICULO" : "PEDESTRE",
-                                placaVeiculo: colab.veiculos?.[0]?.placa || null,
+                              const res = await fetch("/api/acessos", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  nomePessoa: colab.nome,
+                                  documentoPessoa: colab.documento,
+                                  empresaOuSetor: "",
+                                  pessoaSolicitante: "",
+                                  tipo: colab.veiculos?.length > 0 ? "VEICULO" : "PEDESTRE",
+                                  placaVeiculo: colab.veiculos?.[0]?.placa || null,
+                                }),
                               });
+                              if (!res.ok) throw new Error("Erro ao registrar entrada");
                               toast({ title: "Entrada registrada com sucesso!" });
-                              setAcessos((prev) => [...prev, novoAcesso]);
+                              fetchAcessos();
                             } catch (error) {
                               toast({
                                 title: "Erro",
@@ -578,7 +586,6 @@ export default function AccessControl() {
         </TabsContent>
       </Tabs>
 
-      {/* Access Details Modal */}
       {selectedAccess && (
         <Dialog open={modalAberto} onOpenChange={setModalAberto}>
           <DialogContent>
@@ -604,7 +611,6 @@ export default function AccessControl() {
         </Dialog>
       )}
 
-      {/* Custom Ticket Modal */}
       <Dialog open={modalTicketPersonalizado} onOpenChange={setModalTicketPersonalizado}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>

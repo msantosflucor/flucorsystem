@@ -15,33 +15,38 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
     }
 
+    // Buscar usuário no banco
     const usuario = await prisma.usuario.findUnique({
       where: { username },
-      include: { permissoes: true },
+      include: {
+        permissoes: true, // não quebra mesmo que esteja vazio
+      },
     });
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
     }
 
+    // Validar senha com bcrypt
     const senhaValida = await bcrypt.compare(senha, usuario.senhaHash);
     if (!senhaValida) {
       return NextResponse.json({ error: "Senha incorreta." }, { status: 401 });
     }
 
+    // Preparar payload do token
     const payload = {
       id: usuario.id,
       username: usuario.username,
       role: usuario.role,
-      permissoes: usuario.permissoes.map((p) => p.modulo),
+      permissoes: usuario.permissoes?.map((p) => p.modulo) || [],
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "8h" });
 
-    // Define cookie corretamente
+    // Definir cookie
     cookies().set("token", token, {
       httpOnly: true,
-      secure: false, // importante para ambiente localhost
+      secure: false, // Em produção com HTTPS, troque para true
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 8,
