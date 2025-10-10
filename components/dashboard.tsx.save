@@ -1,0 +1,174 @@
+"use client"
+
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Clock, Truck, FlaskConical, History, Settings, MapPin } from "lucide-react"
+import BoxesStatus from "@/components/boxes-status"
+import TruckRegistration from "@/components/truck-registration"
+import LaboratoryAnalysis from "@/components/laboratory-analysis"
+import HistoryLog from "@/components/history-log"
+import { useToast } from "@/hooks/use-toast"
+import PendingSamplesIndicator from "@/components/pending-samples-indicator"
+import PendingSamplesList from "@/components/pending-samples-list"
+import FlucorLogo from "@/components/flucor-logo"
+import LineManagement from "@/components/line-management"
+import UnitSelector from "@/components/unit-selector"
+import ParkingDashboard from "@/components/parking-dashboard"
+
+export default function Dashboard({ unitColor = "#8B1A1A" }) {
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [currentUnitColor, setCurrentUnitColor] = useState(unitColor)
+
+  // Função para alterar a unidade atual
+  const handleUnitChange = (color: string) => {
+    setCurrentUnitColor(color)
+    toast({
+      title: "Unidade alterada",
+      description: "Você alterou para uma nova unidade.",
+    })
+  }
+
+  return (
+    <div className="container mx-auto py-6">
+      <header className="mb-6 flex items-center justify-between">
+        <FlucorLogo size="medium" unitColor={currentUnitColor} />
+        <div className="flex items-center gap-2">
+          <UnitSelector currentUnitColor={currentUnitColor} onUnitChange={handleUnitChange} />
+          <PendingSamplesIndicator />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              toast({
+                title: "Relatório gerado",
+                description: "O relatório foi exportado com sucesso.",
+              })
+            }}
+          >
+            Exportar Relatório
+          </Button>
+        </div>
+      </header>
+
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            <span>Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="truck" className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            <span>Registro de Caminhão</span>
+          </TabsTrigger>
+          <TabsTrigger value="laboratory" className="flex items-center gap-2">
+            <FlaskConical className="h-5 w-5" />
+            <span>Análise Laboratorial</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            <span>Histórico</span>
+          </TabsTrigger>
+          <TabsTrigger value="lines" className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            <span>Gerenciar Linhas</span>
+          </TabsTrigger>
+          <TabsTrigger value="parking" className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            <span>Estacionamento</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Caminhões Aguardando</CardTitle>
+                <Truck className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">4</div>
+                <p className="text-xs text-muted-foreground">2 em análise, 2 aguardando</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tempo Médio de Espera</CardTitle>
+                <Clock className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">32 min</div>
+                <p className="text-xs text-muted-foreground">-5% em relação à média</p>
+curl -X POST http://localhost:3000/api/unidades \   -H "Content-Type: application/json              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Caixas Disponíveis</CardTitle>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-5 w-5 text-muted-foreground"
+                >
+                  <rect width="7" height="7" x="3" y="3" rx="1" />
+                  <rect width="7" height="7" x="14" y="3" rx="1" />
+                  <rect width="7" height="7" x="14" y="14" rx="1" />
+                  <rect width="7" height="7" x="3" y="14" rx="1" />
+                </svg>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">4/6</div>
+                <p className="text-xs text-muted-foreground">2 caixas ocupadas</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Análises Hoje</CardTitle>
+                <FlaskConical className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">12</div>
+                <p className="text-xs text-muted-foreground">10 liberadas, 2 recusadas</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <BoxesStatus />
+            </div>
+            <div className="space-y-4">
+              <PendingSamplesList />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="truck">
+          <TruckRegistration />
+        </TabsContent>
+
+        <TabsContent value="laboratory">
+          <LaboratoryAnalysis />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <HistoryLog />
+        </TabsContent>
+
+        <TabsContent value="lines">
+          <LineManagement />
+        </TabsContent>
+
+        <TabsContent value="parking">
+          <ParkingDashboard />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

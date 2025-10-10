@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Unidade {
+  id       Int      @id @default(autoincrement())
+  nome     String
+  corHex   String
+  criadoEm DateTime @default(now())
+}
+
+model Caminhao {
+  id                   Int            @id @default(autoincrement())
+  placa                String
+  caixaId              Int?
+  criadoEm             DateTime       @default(now())
+  status               StatusCaminhao
+  tipo                 TipoResiduo?
+  destinoCaixaId       Int?
+  motorista            String
+  transportadora       String
+  horaColeta           DateTime?
+  horaSaida            DateTime?
+  tempoLiberacaoMin    Int?
+  origem               String?
+
+  // Campos de segurança e inspeção
+  documentoMotorista   String
+  possuiMTR            Boolean        @default(false)
+  possuiNotaFiscal     Boolean        @default(false)
+  anomaliaVeiculo      Boolean        @default(false)
+  descricaoAnomalia    String?
+  possuiEPI            Boolean        @default(false)
+  vestimentaIrregular  Boolean        @default(false)
+  estadoFisico         String?
+
+  // Campo para diferenciar autorização manual/automática
+  manual               Boolean?       @default(false)
+
+  // Campos para caminhões de carregamento
+  carregamento             Boolean        @default(false)
+  horaInicioCarregamento   DateTime?
+  horaFimCarregamento      DateTime?
+
+  analises             Analise[]
+  caixa                Caixa?         @relation("CaixaAtual", fields: [caixaId], references: [id])
+  destinoCaixa         Caixa?         @relation("CaixaDestino", fields: [destinoCaixaId], references: [id])
+  acessos              Acesso[]
+
+  @@index([caixaId], map: "Caminhao_caixaId_fkey")
+  @@index([destinoCaixaId], map: "Caminhao_destinoCaixaId_fkey")
+}
+
+model Analise {
+  id                                Int            @id @default(autoincrement())
+  caminhaoId                        Int
+  status                            StatusCaminhao
+  tanque                            String
+  observacoes                       String
+  criadoEm                          DateTime       @default(now())
+  liberadaIncompativel              Boolean?       @default(false)
+  justificativaLiberacaoIncompativel String?
+  motivoLiberacaoSemDescarga        String?
+  tipoResiduo                       TipoResiduo?
+
+  destino                           String?
+  outroDestino                      String?
+
+  origem                            String?
+
+  caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
+
+  @@index([caminhaoId], map: "Analise_caminhaoId_fkey")
+}
+
+model Caixa {
+  id          Int         @id @default(autoincrement())
+  nome        String      @unique
+  status      StatusCaixa
+  tipoResiduo TipoResiduo
+  linhaId     Int?
+  criadoEm    DateTime    @default(now())
+
+  linha       Linha?      @relation(fields: [linhaId], references: [id])
+  caminhoes   Caminhao[]  @relation("CaixaAtual")
+  destinoPara Caminhao[]  @relation("CaixaDestino")
+
+  @@index([linhaId], map: "Caixa_linhaId_fkey")
+}
+
+model Linha {
+  id               Int         @id @default(autoincrement())
+  nome             String      @unique
+  tipo             TipoResiduo
+  status           StatusLinha
+  motivoManutencao String?
+  tempoMedio       Int
+  eficiencia       Int
+  cargaAtual       Int
+  ultimaManutencao DateTime
+  criadoEm         DateTime    @default(now())
+  caixas           Caixa[]
+  manutencoes      ManutencaoLinha[]
+  emManutencao     Boolean     @default(false)
+}
+
+model ManutencaoLinha {
+  id            Int      @id @default(autoincrement())
+  linhaId       Int
+  motivo        String
+  criadoEm      DateTime @default(now())
+  finalizadoEm  DateTime?
+
+  linha         Linha    @relation(fields: [linhaId], references: [id])
+
+  @@index([linhaId])
+}
+
+model Usuario {
+  id         Int         @id @default(autoincrement())
+  username   String      @unique
+  senhaHash  String
+  email      String?
+  documento  String?
+  role       Role        @default(PADRAO)
+  criadoEm   DateTime    @default(now())
+
+  permissoes Permissao[]
+  logs       LogUsuario[]
+}
+
+model Permissao {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int
+  modulo    Modulo
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId], map: "Permissao_usuarioId_fkey")
+}
+
+model LogUsuario {
+  id         Int       @id @default(autoincrement())
+  usuarioId  Int?
+  usuario    Usuario?  @relation(fields: [usuarioId], references: [id])
+  acao       String
+  autor      String
+  contexto   String?
+  detalhes   String?
+  criadoEm   DateTime  @default(now())
+}
+
+model Acesso {
+  id                Int       @id @default(autoincrement())
+  nomePessoa        String
+  documentoPessoa   String
+  placaVeiculo      String?
+  empresaOuSetor    String?
+  pessoaSolicitante String?
+  dataEntrada       DateTime  @default(now())
+  dataSaida         DateTime?
+  criadoEm          DateTime  @default(now())
+
+  // NOVO: liga ao Caminhao quando for acesso de caminhão
+  caminhaoId        Int?
+  caminhao          Caminhao? @relation(fields: [caminhaoId], references: [id])
+
+  @@index([caminhaoId, dataEntrada, dataSaida])
+}
+
+model Colaborador {
+  id               Int        @id @default(autoincrement())
+  nome             String
+  documento        String
+  tipoCombustivel  String?
+  litrosCombustivel Float?
+  validadeInicio   DateTime?
+  validadeFim      DateTime?
+  criadoEm         DateTime   @default(now())
+
+  veiculos         Veiculo[]
+}
+
+model Veiculo {
+  id            Int         @id @default(autoincrement())
+  placa         String
+  modelo        String
+  cor           String
+  colaboradorId Int
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+
+  @@index([colaboradorId])
+}
+
+enum StatusLinha {
+  active
+  maintenance
+}
+
+enum StatusCaixa {
+  livre
+  ocupada
+}
+
+enum StatusCaminhao {
+  waiting
+  in_progress
+  approved
+  incompatible
+  rejected
+  finalizado
+  liberado_para_carregar
+}
+
+enum TipoResiduo {
+  Diversos
+  Oleoso
+  Alcalino
+  Acidos
+  Lodo
+}
+
+enum Role {
+  SYSADMIN
+  PADRAO
+  QUIMICO
+  OPERADOR
+  GUARITA
+  LOGISTICA
+}
+
+enum Modulo {
+  DASHBOARD
+  LABORATORIO
+  HISTORICO
+  ESTACIONAMENTO
+  LINHAS
+  CAIXAS
+  CAMINHAO
+  ACESSO
+}
