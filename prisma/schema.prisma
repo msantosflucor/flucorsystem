@@ -242,4 +242,5 @@ enum Modulo {
   CAIXAS
   CAMINHAO
   ACESSO
+  POSHORARIO
 }

@@ -13,17 +13,28 @@ export async function PATCH(
   }
 
   try {
-    // Finaliza o carregamento sem alterar horaSaida
+    // Verifica se o caminhão existe
+    const caminhaoExistente = await prisma.caminhao.findUnique({
+      where: { id: caminhaoId },
+    });
+
+    if (!caminhaoExistente) {
+      return NextResponse.json({ error: "Caminhão não encontrado." }, { status: 404 });
+    }
+
+    // Finaliza o carregamento apenas setando horaFimCarregamento
+    // Mantém o caminhão visível (não move para histórico)
+    // Não altera o status para finalizado
     const atualizado = await prisma.caminhao.update({
       where: { id: caminhaoId },
       data: {
         horaFimCarregamento: new Date(),
-        status: StatusCaminhao.finalizado,
+        // Status mantém o valor atual, não é alterado para "finalizado"
       },
     });
 
     return NextResponse.json({
-      message: "Carregamento finalizado.",
+      message: "Carregamento finalizado. Aguardando pós-análise.",
       caminhao: atualizado,
     });
   } catch (error) {

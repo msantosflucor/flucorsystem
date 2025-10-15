@@ -15,6 +15,7 @@ import {
   Settings,
   MapPin,
   LogOut,
+  Moon,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BoxesStatus from "@/components/boxes-status";
@@ -261,6 +262,12 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
               Controle de Acesso
             </TabsTrigger>
           )}
+          {permissoes.includes("POSHORARIO") && (
+            <TabsTrigger value="poshorario">
+              <Moon className="h-5 w-5" />
+              Pós-Horário
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {permissoes.includes("DASHBOARD") && (
@@ -312,6 +319,17 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
         {permissoes.includes("ACESSO") && (
           <TabsContent value="acesso">
             <AccessControl />
+          </TabsContent>
+        )}
+
+        {permissoes.includes("POSHORARIO") && (
+          <TabsContent value="poshorario">
+            <div className="rounded-2xl border p-6">
+              <h2 className="text-xl font-semibold mb-2">Pós-Horário</h2>
+              <p className="text-sm opacity-80">
+                Tela inicial do módulo PH. Aqui vamos listar as viagens elegíveis e o botão "Autorizar (PH)".
+              </p>
+            </div>
           </TabsContent>
         )}
       </Tabs>

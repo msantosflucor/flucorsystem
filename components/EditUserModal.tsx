@@ -31,6 +31,7 @@ const MODULOS = [
   "CAIXAS",
   "CAMINHAO",
   "ACESSO",
+  "POSHORARIO",
 ];
 
 type Props = {

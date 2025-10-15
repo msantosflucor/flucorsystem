@@ -38,6 +38,12 @@ export default function LaboratoryAnalysis() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [buscaPlaca, setBuscaPlaca] = useState("");
+  
+  // Estados novos (pós-análise)
+  const [posDialogOpen, setPosDialogOpen] = useState(false);
+  const [lacreNumero, setLacreNumero] = useState("");
+  const [posObs, setPosObs] = useState("");
+
   const router = useRouter();
   const { toast } = useToast();
 
@@ -73,17 +79,78 @@ export default function LaboratoryAnalysis() {
   };
 
   const sample = caminhoes.find((c) => c.id === selectedId);
+  
+  // Flag pra saber se o carregamento já foi finalizado
+  const carregamentoFinalizado = !!sample?.horaFimCarregamento;
+
+  // Efeito para hidratar/re-hidratar o formulário quando o sample mudar
+  useEffect(() => {
+    if (!sample) return;
+
+    // pega SEMPRE a última análise por criadoEm
+    const ultimaAnalise = (sample.analises || [])
+      .slice()
+      .sort((a: any, b: any) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime())[0];
+
+    // Origem: tenta da análise; se não tiver, fica vazio (sem fallback para sample.origem)
+    setOrigem((prev) => prev || (ultimaAnalise?.origem ?? ""));
+
+    // Tanque / Tipo / Observações (se ainda vazios localmente)
+    setTanque((prev) => prev || (ultimaAnalise?.tanque ?? ""));
+    setTipoResiduo((prev) => prev || (ultimaAnalise?.tipoResiduo ?? ""));
+    setObservacoes((prev) => prev || (ultimaAnalise?.observacoes ?? ""));
+
+    if (sample.carregamento) {
+      const destino = ultimaAnalise?.destino ?? "";
+      setStatus((prev) => prev || destino);
+
+      if (destino === "Outros") {
+        setTipoResiduo((prev) => prev || (ultimaAnalise?.outroDestino ?? ""));
+      } else {
+        // só preenche tipoResiduo se ainda estiver vazio e não for "Outros"
+        setTipoResiduo((prev) => prev || (ultimaAnalise?.tipoResiduo ?? ""));
+      }
+    } else {
+      // Na aba "analysis", 'status' é o status da análise (approved/in_progress/incompatible)
+      setStatus((prev) => prev || (ultimaAnalise?.status ?? ""));
+    }
+  }, [
+    sample?.id,
+    // se mudar qtd de análises ou timestamps, re-hidrata
+    sample?.analises?.length,
+    sample?.horaFimCarregamento,
+  ]);
 
   const handleSelecionar = (id: number) => {
     const selected = caminhoes.find(c => c.id === id);
-    const ultimaAnalise = selected?.analises?.[0];
+    const ultimaAnalise = (selected?.analises || [])
+      .slice()
+      .sort((a: any, b: any) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime())[0];
 
     setSelectedId(id);
-    setStatus(prev => prev || ultimaAnalise?.status || "");
-    setTanque(prev => prev || ultimaAnalise?.tanque || "");
-    setObservacoes(prev => prev || ultimaAnalise?.observacoes || "");
-    setTipoResiduo(prev => prev || ultimaAnalise?.tipoResiduo || "");
-    setOrigem(prev => prev || ultimaAnalise?.origem || "");
+
+    // Origem sempre vinda da última análise; não cair para sample.origem
+    setOrigem((prev) => prev || (ultimaAnalise?.origem ?? ""));
+
+    // Tanque / Observações
+    setTanque((prev) => prev || (ultimaAnalise?.tanque ?? ""));
+    setObservacoes((prev) => prev || (ultimaAnalise?.observacoes ?? ""));
+
+    if (selected?.carregamento) {
+      // *** EM CARREGAMENTO: status do form é o DESTINO ***
+      setStatus((prev) => prev || (ultimaAnalise?.destino ?? ""));
+      // "Outros" usa outroDestino no input auxiliar
+      if ((ultimaAnalise?.destino ?? "") === "Outros") {
+        setTipoResiduo((prev) => prev || (ultimaAnalise?.outroDestino ?? ""));
+      } else {
+        setTipoResiduo((prev) => prev || (ultimaAnalise?.tipoResiduo ?? ""));
+      }
+    } else {
+      // *** EM ANÁLISE: status do form é o status da análise ***
+      setStatus((prev) => prev || (ultimaAnalise?.status ?? ""));
+      setTipoResiduo((prev) => prev || (ultimaAnalise?.tipoResiduo ?? ""));
+    }
+
     setActiveTab(selected?.carregamento ? "carregamento" : "analysis");
   };
 
@@ -286,10 +353,7 @@ export default function LaboratoryAnalysis() {
                       Detalhes
                     </Button>
                     {c.carregamento ? (
-                      <Button onClick={() => {
-                        setSelectedId(c.id);
-                        setActiveTab("carregamento");
-                      }}>
+                      <Button onClick={() => handleSelecionar(c.id)}>
                         Analisar
                       </Button>
                     ) : !c.horaColeta ? (
@@ -527,72 +591,84 @@ export default function LaboratoryAnalysis() {
               <Button variant="outline" onClick={() => setActiveTab("pending")}>
                 Voltar
               </Button>
-              <div className="flex gap-2">
+
+              {/* Se o carregamento JÁ FOI finalizado no Estacionamento, exibimos apenas "Concluir Pós Análise" */}
+              {carregamentoFinalizado ? (
                 <Button
-                  className="bg-green-600 text-white"
-                  onClick={async () => {
-                    if (!tanque || !status || (status === "Outros" && !tipoResiduo)) {
-                      toast({
-                        title: "Preenchimento incompleto",
-                        description: "Preencha todos os campos obrigatórios antes de continuar.",
-                        variant: "destructive",
+                  className="bg-indigo-600 text-white"
+                  onClick={() => setPosDialogOpen(true)}
+                >
+                  Concluir Pós Análise
+                </Button>
+              ) : (
+                // Caso contrário, mantemos o fluxo anterior (Liberar / Negar Carregamento)
+                <div className="flex gap-2">
+                  <Button
+                    className="bg-green-600 text-white"
+                    onClick={async () => {
+                      if (!tanque || !status || (status === "Outros" && !tipoResiduo)) {
+                        toast({
+                          title: "Preenchimento incompleto",
+                          description: "Preencha todos os campos obrigatórios antes de continuar.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      await fetch(`/api/laboratorio`, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          caminhaoId: selectedId,
+                          tanque,
+                          observacoes,
+                          destino: status,
+                          outroDestino: status === "Outros" ? tipoResiduo : null,
+                          tipoResiduo: tipoResiduo,
+                          origem,
+                          status: "approved",
+                        }),
                       });
-                      return;
-                    }
 
-                    await fetch(`/api/laboratorio`, {
-                      method: "POST",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        caminhaoId: selectedId,
-                        tanque,
-                        observacoes,
-                        destino: status,
-                        outroDestino: status === "Outros" ? tipoResiduo : null,
-                        tipoResiduo: tipoResiduo,
-                        origem,
-                        status: "approved",
-                      }),
-                    });
+                      await fetch(`/api/laboratorio/${selectedId}/liberar-carregamento`, {
+                        method: "PATCH",
+                        credentials: "include",
+                      });
 
-                    await fetch(`/api/laboratorio/${selectedId}/liberar-carregamento`, {
-                      method: "PATCH",
-                      credentials: "include",
-                    });
+                      toast({
+                        title: "Carregamento liberado",
+                        description: "O caminhão foi liberado para carregamento.",
+                      });
 
-                    toast({
-                      title: "Carregamento liberado",
-                      description: "O caminhão foi liberado para carregamento.",
-                    });
+                      fetchCaminhoes();
+                      setSelectedId(null);
+                      setActiveTab("pending");
+                    }}
+                  >
+                    Liberar Carregamento
+                  </Button>
 
-                    fetchCaminhoes();
-                    setSelectedId(null);
-                    setActiveTab("pending");
-                  }}
-                >
-                  Liberar Carregamento
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  onClick={async () => {
-                    await fetch(`/api/laboratorio/${selectedId}/negar-carregamento`, {
-                      method: "PATCH",
-                      credentials: "include",
-                    });
-                    toast({
-                      title: "Carregamento negado",
-                      description: "O caminhão foi recusado para carregamento.",
-                    });
-                    fetchCaminhoes();
-                    setSelectedId(null);
-                    setActiveTab("pending");
-                  }}
-                >
-                  Negar Carregamento
-                </Button>
-              </div>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      await fetch(`/api/laboratorio/${selectedId}/negar-carregamento`, {
+                        method: "PATCH",
+                        credentials: "include",
+                      });
+                      toast({
+                        title: "Carregamento negado",
+                        description: "O caminhão foi recusado para carregamento.",
+                      });
+                      fetchCaminhoes();
+                      setSelectedId(null);
+                      setActiveTab("pending");
+                    }}
+                  >
+                    Negar Carregamento
+                  </Button>
+                </div>
+              )}
             </CardFooter>
           </Card>
         ) : (
@@ -668,6 +744,91 @@ export default function LaboratoryAnalysis() {
             <DialogClose asChild>
               <Button>Fechar</Button>
             </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Concluir Pós Análise</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="lacre">Número do Lacre</Label>
+              <Input
+                id="lacre"
+                placeholder="Ex.: 1234567"
+                value={lacreNumero}
+                onChange={(e) => setLacreNumero(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="posObs">Observações (opcional)</Label>
+              <Textarea
+                id="posObs"
+                placeholder="Observações finais..."
+                value={posObs}
+                onChange={(e) => setPosObs(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="secondary" onClick={() => setPosDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!lacreNumero.trim()) {
+                  toast({
+                    title: "Número do lacre obrigatório",
+                    description: "Informe o número do lacre para finalizar.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                try {
+                  // Usa sua rota existente
+                  const res = await fetch(`/api/laboratorio/${selectedId}/pos-analise-carregamento`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      lacre: lacreNumero.trim(),
+                      descricao: posObs || null,
+                      finalizar: true, // seta finalização (status finalizado + horaSaida)
+                    }),
+                  });
+
+                  if (!res.ok) throw new Error("Falha ao concluir pós-análise");
+
+                  toast({
+                    title: "Pós-análise concluída",
+                    description: "Registro finalizado e enviado ao histórico.",
+                  });
+
+                  setPosDialogOpen(false);
+                  setLacreNumero("");
+                  setPosObs("");
+                  await fetchCaminhoes();
+                  setSelectedId(null);
+                  setActiveTab("pending");
+                } catch (err: any) {
+                  toast({
+                    title: "Erro",
+                    description: err.message || "Não foi possível concluir a pós-análise.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Salvar e Finalizar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -57,39 +57,38 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       });
       const data = await response.json();
 
+      // Filtro mais permissivo - mantém caminhões até a pós-análise
       const filtered = data.filter((item: any) => {
         return (
           !item.status.includes("finalizado") &&
-          item.status !== "liberado_para_carregar" &&
-          item.status !== "finalizando" &&
           item.status !== "historico" &&
           item.caixaId === null
         );
       });
 
-	const mappedData = filtered.map((item: any) => {
-	  const ultimaAnalise = item.analises?.[0] || null;
-	  return {
-	    id: item.id,
-	    plate: item.placa,
-	    motorista: item.motorista ?? "Não informado",
-	    transportadora: item.transportadora ?? "Não informado",
-	    origin: ultimaAnalise?.origem || item.origem || "Não informado",
-	    box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
-	    destinoCaixaId: item.destinoCaixaId,
-	    status: item.status,
-	    type: ultimaAnalise?.tipoResiduo || item.tipo || "Diversos",
-	    time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
-	    liberadaIncompativel: item.liberadaIncompativel,
-	    analises: item.analises || [],
-	    carregamento: item.carregamento || false,
-	    horaInicioCarregamento: item.horaInicioCarregamento || null,
-	    horaFimCarregamento: item.horaFimCarregamento || null,
-	    motivoLiberacao: item.motivoLiberacao || null,
-	    observacoes: ultimaAnalise?.observacoes || "",
-	    tanque: ultimaAnalise?.tanque || ""
-	  };
-	});
+      const mappedData = filtered.map((item: any) => {
+        const ultimaAnalise = item.analises?.[0] || null;
+        return {
+          id: item.id,
+          plate: item.placa,
+          motorista: item.motorista ?? "Não informado",
+          transportadora: item.transportadora ?? "Não informado",
+          origin: ultimaAnalise?.origem || item.origem || "Não informado",
+          box: item.caixa?.nome ?? (item.destinoCaixa?.nome ? `Fila: ${item.destinoCaixa.nome}` : null),
+          destinoCaixaId: item.destinoCaixaId,
+          status: item.status,
+          type: ultimaAnalise?.tipoResiduo || item.tipo || "Diversos",
+          time: Math.floor((Date.now() - new Date(item.criadoEm).getTime()) / 60000),
+          liberadaIncompativel: item.liberadaIncompativel,
+          analises: item.analises || [],
+          carregamento: item.carregamento || false,
+          horaInicioCarregamento: item.horaInicioCarregamento || null,
+          horaFimCarregamento: item.horaFimCarregamento || null,
+          motivoLiberacao: item.motivoLiberacao || null,
+          observacoes: ultimaAnalise?.observacoes || "",
+          tanque: ultimaAnalise?.tanque || ""
+        };
+      });
 
       setTrucksData(mappedData);
     } catch (error) {
@@ -236,7 +235,20 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     return matchesStatus && matchesType && matchesPlaca;
   });
 
-  const getTruckBackgroundColor = (status: string) => {
+  const getTruckBackgroundColor = (truck: any) => {
+    const { status, carregamento, horaFimCarregamento } = truck;
+    
+    // Caminhões de carregamento que já finalizaram (aguardando pós-análise)
+    if (carregamento === true && horaFimCarregamento) {
+      return "bg-purple-100 border-purple-300";
+    }
+    
+    // Caminhões de carregamento normais
+    if (carregamento === true) {
+      return status === "rejected" ? "bg-gray-300 border-gray-400" : "bg-cyan-100 border-cyan-400";
+    }
+    
+    // Caminhões normais (descarga)
     switch (status) {
       case "approved": 
       case "liberado_para_carregar": 
@@ -249,7 +261,14 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     }
   };
 
-  const getTruckStatusIcon = (status: string) => {
+  const getTruckStatusIcon = (truck: any) => {
+    const { status, carregamento, horaFimCarregamento } = truck;
+    
+    // Caminhões de carregamento que já finalizaram (aguardando pós-análise)
+    if (carregamento === true && horaFimCarregamento) {
+      return <Clock className="h-5 w-5 text-purple-600" />;
+    }
+    
     switch (status) {
       case "approved":
       case "liberado_para_carregar": 
@@ -262,7 +281,14 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (truck: any) => {
+    const { status, carregamento, horaFimCarregamento } = truck;
+    
+    // Caminhões de carregamento que já finalizaram (aguardando pós-análise)
+    if (carregamento === true && horaFimCarregamento) {
+      return "Aguardando Pós-Análise";
+    }
+    
     switch (status) {
       case "approved": return "Liberado para Descarregar";
       case "liberado_para_carregar": return "Liberado para Carregar";
@@ -297,7 +323,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
       truck.transportadora,
       truck.origin,
       `${Math.floor(truck.time)} min`,
-      getStatusText(truck.status),
+      getStatusText(truck),
     ]);
 
     autoTable(doc, {
@@ -410,16 +436,12 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {filteredTrucks.map((truck) => {
                   const isCarregamento = truck.carregamento === true;
+                  const carregamentoFinalizado = isCarregamento && truck.horaFimCarregamento;
+                  
                   return (
                     <div
                       key={truck.id}
-                      className={`relative rounded-md border p-3 ${
-                        isCarregamento 
-                          ? truck.status === "rejected"
-                            ? "bg-gray-300 border-gray-400"
-                            : "bg-cyan-100 border-cyan-400"
-                          : getTruckBackgroundColor(truck.status)
-                      }`}
+                      className={`relative rounded-md border p-3 ${getTruckBackgroundColor(truck)}`}
                     >
                       <div className="absolute top-2 right-2 flex items-center gap-1">
                         {isCarregamento && (
@@ -427,7 +449,12 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                             🚚📦
                           </span>
                         )}
-                        {getTruckStatusIcon(truck.status)}
+                        {carregamentoFinalizado && (
+                          <Badge variant="outline" className="text-xs bg-purple-200">
+                            Pós-Análise
+                          </Badge>
+                        )}
+                        {getTruckStatusIcon(truck)}
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -442,6 +469,11 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                           )}
                           {truck.box && (
                             <span className="text-xs font-medium">{truck.box}</span>
+                          )}
+                          {carregamentoFinalizado && (
+                            <Badge variant="secondary" className="w-fit text-xs bg-purple-100 text-purple-800">
+                              Carregamento Finalizado
+                            </Badge>
                           )}
                         </div>
                         <div className="flex items-center justify-between text-xs">
@@ -485,8 +517,8 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                   <p className="text-sm text-muted-foreground">{selectedTruck.motorista}</p>
                 </div>
                 <div className="flex gap-2 items-center">
-                  {getTruckStatusIcon(selectedTruck.status)}
-                  <span>{getStatusText(selectedTruck.status)}</span>
+                  {getTruckStatusIcon(selectedTruck)}
+                  <span>{getStatusText(selectedTruck)}</span>
                 </div>
               </div>
 
@@ -635,7 +667,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                           : "Aguardando liberação do laboratório"}
                       </div>
                     )
-                  ) : (
+                  ) : !selectedTruck.horaFimCarregamento ? (
                     <Button
                       variant="destructive"
                       onClick={async () => {
@@ -652,12 +684,12 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
 
                           toast({
                             title: "Carregamento finalizado",
-                            description: "Caminhão enviado para o histórico.",
+                            description: "Aguardando pós-análise no laboratório.",
                           });
                           
-                          setTrucksData(prev => prev.filter(t => t.id !== selectedTruck.id));
                           setDetailsDialogOpen(false);
                           await onAtualizarCaixas();
+                          await fetchTrucks();
                         } catch (error) {
                           toast({
                             title: "Erro ao finalizar carregamento",
@@ -669,6 +701,10 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
                     >
                       Finalizar Carregamento
                     </Button>
+                  ) : (
+                    <div className="text-sm text-purple-700 bg-purple-100 border border-purple-300 rounded p-2">
+                      Carregamento finalizado - Aguardando pós-análise
+                    </div>
                   )}
                 </div>
               ) : (
@@ -736,6 +772,7 @@ export default function ParkingDashboard({ onAtualizarCaixas }: ParkingDashboard
             <li><span className="inline-block w-4 h-4 bg-red-200 border border-red-400 mr-2"></span> Incompatível</li>
             <li><span className="inline-block w-4 h-4 bg-gray-300 border border-gray-400 mr-2"></span> Recusado</li>
             <li><span className="inline-block w-4 h-4 bg-cyan-100 border border-cyan-400 mr-2"></span> Caminhão de Carregamento</li>
+            <li><span className="inline-block w-4 h-4 bg-purple-100 border border-purple-300 mr-2"></span> Aguardando Pós-Análise</li>
           </ul>
         </DialogContent>
       </Dialog>
