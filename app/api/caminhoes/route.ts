@@ -4,6 +4,7 @@ import { StatusCaminhao } from "@prisma/client";
 import { registrarLog } from "@/lib/log-usuario";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { isLaboratorioFechado, janelaFechamentoAtual } from "@/lib/horarioLab";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
@@ -98,9 +99,40 @@ export async function POST(req: NextRequest) {
 }
 
 // GET - Listar todos os caminhões com análises
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const para = url.searchParams.get("para"); // "poshorario" | "laboratorio" | null
+
+    // Base query
+    let where: any = {
+      status: { not: StatusCaminhao.finalizado } // Sempre exclui finalizados
+    };
+
+    // Se for para "poshorario", aplica filtro específico
+    if (para === "poshorario") {
+      // SEMPRE filtra pela janela de fechamento, independente do estado atual do laboratório
+      const [inicio, fim] = janelaFechamentoAtual();
+      if (inicio && fim) {
+        where.criadoEm = { gte: inicio, lt: fim };
+      } else {
+        // Se não há janela ativa (laboratório aberto), retorna vazio
+        return NextResponse.json([]);
+      }
+    } 
+    // Se for para "laboratorio", busca apenas caminhões fora da janela de fechamento
+    else if (para === "laboratorio") {
+      const [inicio, fim] = janelaFechamentoAtual();
+      if (inicio && fim) {
+        // Exclui caminhões criados durante o fechamento do laboratório
+        where.criadoEm = { not: { gte: inicio, lt: fim } };
+      }
+      // Se não há janela ativa, busca todos (laboratório aberto normal)
+    }
+    // Se não especificado (null), busca todos os caminhões não finalizados
+
     const caminhoes = await prisma.caminhao.findMany({
+      where,
       orderBy: { criadoEm: "desc" },
       include: {
         caixa: true,
@@ -122,6 +154,7 @@ export async function GET() {
           },
         },
       },
+      take: 100, // Limite para performance
     });
 
     // Apenas adiciona uma flag auxiliar fora da estrutura de analises

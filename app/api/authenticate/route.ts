@@ -4,7 +4,10 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "sua_chave_secreta_segura";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não definido no ambiente");
+}
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -19,7 +22,11 @@ export async function POST(request: Request): Promise<Response> {
     const usuario = await prisma.usuario.findUnique({
       where: { username },
       include: {
-        permissoes: true, // não quebra mesmo que esteja vazio
+        permissoes: {
+          select: {
+            modulo: true
+          }
+        },
       },
     });
 
@@ -33,23 +40,32 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json({ error: "Senha incorreta." }, { status: 401 });
     }
 
-    // Preparar payload do token
+    // Preparar payload do token - garantir que permissoes seja um array de strings
+    const permissoesArray = usuario.permissoes?.map((p) => p.modulo) || [];
+    
     const payload = {
       id: usuario.id,
       username: usuario.username,
       role: usuario.role,
-      permissoes: usuario.permissoes?.map((p) => p.modulo) || [],
+      permissoes: permissoesArray,
     };
+
+    // DEBUG: Log para verificar o payload
+    console.log("[AUTH] Login realizado:", {
+      username: usuario.username,
+      role: usuario.role,
+      permissoes: permissoesArray
+    });
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "8h" });
 
     // Definir cookie
     cookies().set("token", token, {
       httpOnly: true,
-      secure: false, // Em produção com HTTPS, troque para true
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge: 60 * 60 * 8, // 8 horas
     });
 
     return NextResponse.json({

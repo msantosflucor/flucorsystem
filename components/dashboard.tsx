@@ -31,6 +31,7 @@ import UnitSelector from "@/components/unit-selector";
 import ParkingDashboard from "@/components/parking-dashboard";
 import { Button } from "@/components/ui/button";
 import AccessControl from "@/components/access-control";
+import PosHorario from "./poshorario"; // ← IMPORT CORRIGIDO
 
 export default function Dashboard({ unitColor = "#8B1A1A" }) {
   const { toast } = useToast();
@@ -324,12 +325,7 @@ export default function Dashboard({ unitColor = "#8B1A1A" }) {
 
         {permissoes.includes("POSHORARIO") && (
           <TabsContent value="poshorario">
-            <div className="rounded-2xl border p-6">
-              <h2 className="text-xl font-semibold mb-2">Pós-Horário</h2>
-              <p className="text-sm opacity-80">
-                Tela inicial do módulo PH. Aqui vamos listar as viagens elegíveis e o botão "Autorizar (PH)".
-              </p>
-            </div>
+            <PosHorario /> {/* ← AGORA DEVE FUNCIONAR */}
           </TabsContent>
         )}
       </Tabs>

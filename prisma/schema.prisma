@@ -140,6 +140,7 @@ model Permissao {
   modulo    Modulo
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
+  @@unique([usuarioId, modulo]) // ✅ IMPORTA: Evita permissões duplicadas
   @@index([usuarioId], map: "Permissao_usuarioId_fkey")
 }
 
@@ -243,4 +244,5 @@ enum Modulo {
   CAMINHAO
   ACESSO
   POSHORARIO
+  USUARIOS  // ✅ NOVO: Para a rota /usuarios que existe no seu middleware
 }

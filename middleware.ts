@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não definido no ambiente");
+}
 
 function getSecretKey() {
   return new TextEncoder().encode(JWT_SECRET);
@@ -9,29 +12,30 @@ function getSecretKey() {
 
 const rotaParaModulo: Record<string, string> = {
   "/laboratorio": "LABORATORIO",
-  "/historico": "HISTORICO",
+  "/historico": "HISTORICO", 
   "/linhas": "LINHAS",
   "/caixas": "CAIXAS",
   "/estacionamento": "ESTACIONAMENTO",
-  "/usuarios": "USUARIOS",
   "/acesso": "ACESSO",
   "/auth/acesso": "ACESSO",
+  "/poshorario": "POSHORARIO",
 };
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Rotas públicas - permitir acesso sem verificação
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/logo-flucor.jpeg") ||
-    pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff|woff2|ttf|map)$/)
+    pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff|woff2|ttf|map)$/) ||
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname.startsWith("/api/authenticate") ||
+    pathname === "/inicio" ||
+    pathname === "/acesso-negado"
   ) {
-    return NextResponse.next();
-  }
-
-  const rotasPublicas = ["/", "/login", "/api/authenticate", "/inicio", "/acesso-negado"];
-  if (rotasPublicas.some((rota) => pathname === rota || pathname.startsWith(rota))) {
     return NextResponse.next();
   }
 
@@ -44,39 +48,63 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload }: any = await jwtVerify(token, getSecretKey());
 
-    if (pathname.startsWith("/auth/usuarios") && payload.role !== "SYSADMIN") {
+    // DEBUG: Log para verificar o payload do token
+    console.log(`[MIDDLEWARE] Usuário: ${payload.username}, Role: ${payload.role}, Permissões:`, payload.permissoes);
+
+    // SYSADMIN tem acesso total a tudo
+    if (payload.role === "SYSADMIN") {
+      console.log(`[MIDDLEWARE] SYSADMIN ${payload.username} permitido acesso total a ${pathname}`);
+      return NextResponse.next();
+    }
+
+    // Verificação específica para /auth/usuarios - apenas SYSADMIN
+    if (pathname.startsWith("/auth/usuarios")) {
       console.warn(`[MIDDLEWARE] Bloqueado: acesso à /auth/usuarios negado para ${payload.username}`);
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    if (payload.role === "SYSADMIN") return NextResponse.next();
-
+    // Dashboard - verificar permissões da tab
     if (pathname.startsWith("/dashboard")) {
       const tab = req.nextUrl.searchParams.get("tab");
       if (!tab) {
-        return NextResponse.next(); // Permite acesso ao dashboard base
-      }
-      if (payload.permissoes?.includes(tab.toUpperCase())) {
+        // Dashboard sem tab específica - permitir acesso
         return NextResponse.next();
       }
-      console.warn(`[MIDDLEWARE] Bloqueado: ${payload.username} tentou acessar tab '${tab}' sem permissão.`);
+      
+      const tabUpper = tab.toUpperCase();
+      if (payload.permissoes?.includes(tabUpper)) {
+        return NextResponse.next();
+      }
+      
+      console.warn(`[MIDDLEWARE] Bloqueado: ${payload.username} tentou acessar tab '${tab}' sem permissão. Permissões:`, payload.permissoes);
       return NextResponse.redirect(new URL("/acesso-negado", req.url));
     }
 
+    // Verificar outras rotas protegidas
     const rotaProtegida = Object.entries(rotaParaModulo).find(([prefixo]) =>
       pathname.startsWith(prefixo)
     );
+    
     const modulo = rotaProtegida?.[1];
 
-    if (modulo && payload.permissoes?.includes(modulo)) {
-      return NextResponse.next();
+    if (modulo) {
+      if (payload.permissoes?.includes(modulo)) {
+        return NextResponse.next();
+      }
+      console.warn(`[MIDDLEWARE] Bloqueado: ${payload.username} tentou acessar ${modulo} mas não tem permissão. Permissões:`, payload.permissoes);
+      return NextResponse.redirect(new URL("/acesso-negado", req.url));
     }
 
-    console.warn(`[MIDDLEWARE] Bloqueado: ${payload.username} tentou acessar ${modulo || pathname} mas não tem permissão.`);
-    return NextResponse.redirect(new URL("/acesso-negado", req.url));
+    // Se chegou aqui e não é rota pública nem protegida, permitir acesso
+    // (pode ser uma rota nova ou que não precisa de verificação específica)
+    return NextResponse.next();
+
   } catch (error) {
     console.error("[MIDDLEWARE] Erro ao verificar JWT:", error);
-    return NextResponse.redirect(new URL("/login", req.url));
+    // Limpar cookie inválido
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.delete("token");
+    return response;
   }
 }
 
