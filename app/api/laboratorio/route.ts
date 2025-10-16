@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
       tipoResiduo,
       destino,
       outroDestino,
-      origem, // Campo origem incluído
+      origem,
+      responsavelLiberacao, // CAMPO ADICIONADO
     } = await req.json();
 
     if (!caminhaoId || !status || !tanque) {
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
         tipoResiduo: tipoResiduo as TipoResiduo || null,
         destino,
         outroDestino,
-        origem, // Salvar no banco
+        origem,
+        responsavelLiberacao, // SALVAR NO BANCO
       },
     });
 

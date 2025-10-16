@@ -72,6 +72,7 @@ model Analise {
   outroDestino                      String?
 
   origem                            String?
+  responsavelLiberacao              String?        // Responsável pela liberação - CAMPO ADICIONADO
 
   caminhao                          Caminhao       @relation(fields: [caminhaoId], references: [id])
 

@@ -4,7 +4,7 @@ import { StatusCaminhao } from "@prisma/client";
 import { registrarLog } from "@/lib/log-usuario";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-import { isLaboratorioFechado, janelaFechamentoAtual } from "@/lib/horarioLab";
+import { isLaboratorioFechado } from "@/lib/horarioLab";
 
 const JWT_SECRET = process.env.JWT_SECRET || "chave_fallback_insegura";
 
@@ -98,79 +98,89 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - Listar todos os caminhões com análises
+// GET - Listar caminhões separados por período de criação (estável)
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const para = url.searchParams.get("para"); // "poshorario" | "laboratorio" | null
+    const debug = url.searchParams.get("debug"); // "1" habilita debug
 
-    // Base query
-    let where: any = {
-      status: { not: StatusCaminhao.finalizado } // Sempre exclui finalizados
-    };
-
-    // Se for para "poshorario", aplica filtro específico
-    if (para === "poshorario") {
-      // SEMPRE filtra pela janela de fechamento, independente do estado atual do laboratório
-      const [inicio, fim] = janelaFechamentoAtual();
-      if (inicio && fim) {
-        where.criadoEm = { gte: inicio, lt: fim };
-      } else {
-        // Se não há janela ativa (laboratório aberto), retorna vazio
-        return NextResponse.json([]);
-      }
-    } 
-    // Se for para "laboratorio", busca apenas caminhões fora da janela de fechamento
-    else if (para === "laboratorio") {
-      const [inicio, fim] = janelaFechamentoAtual();
-      if (inicio && fim) {
-        // Exclui caminhões criados durante o fechamento do laboratório
-        where.criadoEm = { not: { gte: inicio, lt: fim } };
-      }
-      // Se não há janela ativa, busca todos (laboratório aberto normal)
-    }
-    // Se não especificado (null), busca todos os caminhões não finalizados
-
-    const caminhoes = await prisma.caminhao.findMany({
-      where,
-      orderBy: { criadoEm: "desc" },
-      include: {
-        caixa: true,
-        destinoCaixa: true,
-        analises: {
-          orderBy: { criadoEm: "desc" },
-          select: {
-            id: true,
-            status: true,
-            tanque: true,
-            observacoes: true,
-            criadoEm: true,
-            tipoResiduo: true,
-            destino: true,
-            outroDestino: true,
-            origem: true,
-            liberadaIncompativel: true,
-            justificativaLiberacaoIncompativel: true,
-          },
+    // Campos e relações que você já usava
+    const baseInclude = {
+      caixa: true,
+      destinoCaixa: true,
+      analises: {
+        orderBy: { criadoEm: "desc" },
+        select: {
+          id: true,
+          status: true,
+          tanque: true,
+          observacoes: true,
+          criadoEm: true,
+          tipoResiduo: true,
+          destino: true,
+          outroDestino: true,
+          origem: true,
+          responsavelLiberacao: true,
+          liberadaIncompativel: true,
+          justificativaLiberacaoIncompativel: true,
         },
       },
-      take: 100, // Limite para performance
+    };
+
+    // 1) Busca só os caminhões não finalizados (do jeitinho que já estava)
+    const base = await prisma.caminhao.findMany({
+      where: { status: { not: StatusCaminhao.finalizado } },
+      orderBy: { criadoEm: "desc" },
+      take: 200,
+      include: baseInclude,
     });
 
-    // Apenas adiciona uma flag auxiliar fora da estrutura de analises
-    const caminhoesComFlag = caminhoes.map((caminhao) => {
-      const liberada = caminhao.analises.some(
-        (a) => a.liberadaIncompativel && !!a.justificativaLiberacaoIncompativel
+    // 2) Classificação **congelada** por data de criação
+    //    Se foi criado numa janela em que o lab estava fechado, ele é "poshorario" para sempre.
+    const classifica = (c: any) => {
+      const dt = new Date(c.criadoEm);
+      return isLaboratorioFechado(dt) ? "poshorario" : "laboratorio";
+    };
+
+    // 3) Filtra conforme o parâmetro "para"
+    let caminhoesFiltrados = base;
+    if (para === "poshorario") {
+      caminhoesFiltrados = base.filter((c) => classifica(c) === "poshorario");
+    } else if (para === "laboratorio") {
+      caminhoesFiltrados = base.filter((c) => classifica(c) === "laboratorio");
+    }
+    // Se "para" for nulo, retorna ambos (útil pra telas gerais/diagnóstico)
+
+    // 4) Flag de liberadaIncompativel + bloco de debug opcional
+    const agora = new Date().toISOString();
+    const caminhoesComFlag = caminhoesFiltrados.map((c) => {
+      const liberada = c.analises?.some(
+        (a: any) => a.liberadaIncompativel && !!a.justificativaLiberacaoIncompativel
       );
-      return {
-        ...caminhao,
-        liberadaIncompativel: liberada,
+
+      const baseObj = {
+        ...c,
+        liberadaIncompativel: !!liberada,
       };
+
+      if (debug === "1") {
+        return Object.assign(baseObj, {
+          _debug: {
+            classificadoComo: classifica(c),
+            horarioAtual: agora,
+            criadoEm: new Date(c.criadoEm).toISOString(),
+            possuiAnalises: c.analises?.length > 0,
+          },
+        });
+      }
+
+      return baseObj;
     });
 
     return NextResponse.json(caminhoesComFlag);
   } catch (error) {
-    console.error("Erro ao buscar caminhões:", error);
+    console.error("❌ [API Caminhões] Erro ao buscar caminhões:", error);
     return NextResponse.json({ error: "Erro interno ao buscar caminhões." }, { status: 500 });
   }
 }
