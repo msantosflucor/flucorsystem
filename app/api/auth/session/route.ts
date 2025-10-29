@@ -8,13 +8,15 @@ export async function GET(req: NextRequest) {
     const cookie = req.cookies.get("token")?.value;
 
     if (!cookie) {
-      return NextResponse.json({ user: null }, { status: 401 });
+      // Sem token → 200 com user/expires nulos
+      return NextResponse.json({ user: null, expires: null }, { status: 200 });
     }
 
     const decoded = jwt.verify(cookie, JWT_SECRET);
-    return NextResponse.json({ user: decoded });
+    return NextResponse.json({ user: decoded, expires: null }, { status: 200 });
   } catch (error) {
     console.error("Erro ao verificar sessão:", error);
-    return NextResponse.json({ user: null }, { status: 401 });
+    // Token inválido → também 200 com user null
+    return NextResponse.json({ user: null, expires: null }, { status: 200 });
   }
 }

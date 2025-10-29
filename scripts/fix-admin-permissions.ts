@@ -14,8 +14,6 @@ async function fixAdminPermissions() {
       return;
     }
 
-    console.log("👤 Admin encontrado:", admin.username);
-    console.log("📋 Permissões atuais:", admin.permissoes.map(p => p.modulo));
 
     // Lista de todos os módulos disponíveis
     const todosModulos = [
@@ -40,8 +38,6 @@ async function fixAdminPermissions() {
       )
     );
 
-    console.log("✅ Permissões do admin atualizadas:");
-    console.log(novasPermissoes.map(p => p.modulo));
 
   } catch (error) {
     console.error("❌ Erro ao corrigir permissões:", error);
